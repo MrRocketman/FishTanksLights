@@ -28,9 +28,7 @@
 #include <avr/pgmspace.h>
 
 
-#define LCD_COLS 20      // Number of columns on the LCD (e.g. 16, 20, etc)
-#define LCD_ROWS 4       // Number of rows on the LCD (e.g. 2, 4, etc)
-
+// Pin definitions
 #define LCD_RS 7
 #define LCD_ENABLE 8
 #define LCD_DB4 9
@@ -42,36 +40,46 @@
 #define ENCODER_B 5
 #define ENCODER_CLICK 2
 
+#define BEEPER 6
+
+// Encoder information
 #define ENCODER_CLICK_MASK (1 << 2)
 #define ENCODER_B_MASK (1 << 1)
 #define ENCODER_A_MASK (1 << 0)
 
-//encoder rotation values
 #define encrot0 0
 #define encrot1 2
 #define encrot2 3
 #define encrot3 1
 
-#define BEEPER 6
-
-#define MAX_MSG_LEN 13  // Maximum length of the lightingMessage messages
-
 #define ENCODER_PULSES_PER_STEP 4
 
+// LCD information
+#define LCD_COLUMNS 20      // Number of columns on the LCD (e.g. 16, 20, etc)
+#define LCD_ROWS 4       // Number of rows on the LCD (e.g. 2, 4, etc)
+
+// FLASH String storage info
+#define MAX_MSG_LEN 13  // Maximum length of the lightingMessage messages
+
+// Macro to print a string stored in flash memory
 #define PGMSTR(x) (__FlashStringHelper*)(x)
 
+
+// Main object variables
 RTC_DS1307 RTC;
 IRsend irsend;
 LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 
 byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used by RandomStorm()
 
+// Encoder variables
 int encoderDifference = 0;
 uint8_t encoderPosition = 0;
 uint8_t encoderBits = 0;
 uint8_t previousEncoderBits = 0;
+bool encoderClickStatus = false;
 
-// Functions
+// Function definitions
 void setAlarms();
 time_t syncProvider();
 void scheduleRandomStorm();
@@ -80,11 +88,14 @@ void processComputerCommands(int cmd);
 void sendIRCode(int cmd, byte numTimes);
 void printNumberToLCDWithLeadingZeros(int numberToPrint);
 int availableRAM();
+void encoderClicked();
+void encoderUnClicked();
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
                                    // Remote buttons listed left to right, top to bottom
-PROGMEM unsigned int arrCodes[32] = {0x3AC5,  // 1 -  Orange
+PROGMEM unsigned int arrCodes[32] = {
+    0x3AC5,  // 1 -  Orange
     0xBA45,  // 2 -  Blue
     0x827D,  // 3 -  Rose
     0x02FD,  // 4 -  Power On/Off
@@ -158,7 +169,7 @@ void setup()
     Wire.begin();
     RTC.begin();
     Serial.begin(9600);
-    lcd.begin(LCD_COLS, LCD_ROWS);
+    lcd.begin(LCD_COLUMNS, LCD_ROWS);
     
     if(!RTC.isrunning())
     {
@@ -231,13 +242,31 @@ void loop()
     }
     if(digitalRead(ENCODER_CLICK) == 0)
     {
+        // Button transitions from not clicked to clicked
+        if(encoderClickStatus == false)
+        {
+            encoderClicked();
+            
+            // Beep
+            analogWrite(BEEPER, 128);
+            delay(100);
+            analogWrite(BEEPER, 0);
+            //tone(BEEPER, 500, 10);
+        }
+        
+        encoderClickStatus = true;
+        
         encoderBits |= ENCODER_CLICK_MASK;
         Serial.println(F("Click "));
+    }
+    else if(digitalRead(ENCODER_CLICK == 1))
+    {
+        if(encoderClickStatus == true)
+        {
+            encoderUnClicked();
+        }
         
-        analogWrite(BEEPER, 128);
-        delay(500);
-        analogWrite(BEEPER, 0);
-        //tone(BEEPER, 500, 10);
+        encoderClickStatus = false;
     }
     // Determine the encoder rotation change
     if(encoderBits != previousEncoderBits)
@@ -377,9 +406,9 @@ void scheduleRandomStorm()
         Serial.print(TSDurationM);
         
         lcd.print(F("Storm Time: "));
-        lcd.print(hourFormat12(RH));
+        printNumberToLCDWithLeadingZeros(hourFormat12(RH));
         lcd.print(":");
-        lcd.print(RM);
+        printNumberToLCDWithLeadingZeros(RM);
         if(isAM())
         {
             lcd.print(F(" AM"));
@@ -458,7 +487,7 @@ void sendIRCode(int cmd, byte numTimes)
     Serial.print(minute());
     Serial.print(":");
     Serial.println(second());
-    if (LCD_COLS == 16)
+    if (LCD_COLUMNS == 16)
     {
         lcd.setCursor(0,1);
         lcd.print(PGMSTR(lightingMessage[cmd]));
@@ -484,6 +513,16 @@ int availableRAM()
     extern int __heap_start, *__brkval;
     int v;
     return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+
+void encoderClicked()
+{
+    // Do something here
+}
+
+void encoderUnClicked()
+{
+    // Do something here
 }
 
 // IR Code functions, called by alarms
