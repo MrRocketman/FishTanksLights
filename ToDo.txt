@@ -5,4 +5,3 @@
 - Encoder beep on timer
 - Only update LCD when necessary
 - Alarms array
-- Use tone() for the beeper (requres arduino mega)

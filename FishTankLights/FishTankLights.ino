@@ -81,11 +81,6 @@ volatile bool encoderClickStatus = false;
 volatile bool encoderWasClicked = false;
 volatile bool encoderWasUnClicked = false;
 
-// Beeper variables
-bool isBeeping = false;
-unsigned long beepStartTime = 0;
-int beepDurationInMilliseconds = 0;
-
 // Function definitions
 void setAlarms();
 time_t syncProvider();
@@ -98,7 +93,6 @@ int availableRAM();
 void encoderClicked();
 void encoderUnClicked();
 void readEncoder();
-void beep(int durationInMilliseconds);
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
@@ -246,14 +240,14 @@ void loop()
     if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
     {
         // Quick beep
-        beep(10);
-        /*analogWrite(BEEPER, 128);
+        analogWrite(BEEPER, 128);
         delay(10);
-        analogWrite(BEEPER, 0);*/
+        analogWrite(BEEPER, 0);
         
         //lcdDrawUpdate = 1;
         encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
         encoderDifference = 0;
+        //timeoutToStatus = millis() + LCD_TIMEOUT_TO_STATUS;
         
         //sendIRCode(encoderPosition, 2);
         
@@ -278,17 +272,6 @@ void loop()
         encoderWasUnClicked = false;
         
         encoderUnClicked();
-    }
-    
-    // Stop the beeper if the time is up
-    if(isBeeping)
-    {
-        if(millis() > beepStartTime + beepDurationInMilliseconds)
-        {
-            analogWrite(BEEPER, 0);
-            
-            isBeeping = false;
-        }
     }
 }
 
@@ -481,16 +464,13 @@ int availableRAM()
 
 void encoderClicked()
 {
-    // Do something here on the lcd here
-    lcd.setCursor(5,3);
-    lcd.print(F("Click"));
+    // Do something here
     
     // Beep
-    beep(100);
-    //tone(BEEPER, 500, 10);
-    /*analogWrite(BEEPER, 128);
+    analogWrite(BEEPER, 128);
     delay(100);
-    analogWrite(BEEPER, 0);*/
+    analogWrite(BEEPER, 0);
+    //tone(BEEPER, 500, 10);
 }
 
 void encoderUnClicked()
@@ -570,15 +550,6 @@ void readEncoder()
     }
     previousEncoderBits = encoderBits;
     encoderBits = 0;
-}
-
-void beep(int durationInMilliseconds)
-{
-    analogWrite(BEEPER, 128);
-    
-    isBeeping = true;
-    beepStartTime = millis();
-    beepDurationInMilliseconds = durationInMilliseconds;
 }
 
 // IR Code functions, called by alarms
