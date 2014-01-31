@@ -481,8 +481,15 @@ void encoderClicked()
     analogWrite(BEEPER, 0);
     //tone(BEEPER, 500, 10);
     
-    // Do something here
-    sendIRCode(encoderPosition, 2);
+    // Send the appropriate ir code
+    if(encoderPosition == 3 || encoderPosition == 7 || encoderPosition == 8 || encoderPosition == 9 || encoderPosition == 10 || encoderPosition == 11 || encoderPosition == 12 || encoderPosition == 13 || encoderPosition == 14 || encoderPosition == 15)
+    {
+        sendIRCode(encoderPosition, 1);
+    }
+    else
+    {
+        sendIRCode(encoderPosition, 2);
+    }
 }
 
 void encoderUnClicked()
