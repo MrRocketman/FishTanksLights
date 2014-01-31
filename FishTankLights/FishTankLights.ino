@@ -59,6 +59,7 @@
 
 // FLASH String storage info
 #define MAX_MSG_LEN 13  // Maximum length of the lightingMessage messages
+#define LIGHTING_OPTIONS 32
 
 // Macro to print a string stored in flash memory
 #define PGMSTR(x) (__FlashStringHelper*)(x)
@@ -73,7 +74,7 @@ byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used 
 
 // Encoder variables
 volatile int encoderDifference = 0;
-uint8_t encoderPosition = 0;
+int encoderPosition = 0;
 volatile uint8_t encoderBits = 0;
 volatile uint8_t previousEncoderBits = 0;
 bool encoderClickStatus = false;
@@ -94,7 +95,7 @@ void readEncoder();
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
                                    // Remote buttons listed left to right, top to bottom
-PROGMEM unsigned int arrCodes[32] = {
+PROGMEM unsigned int lightCodes[LIGHTING_OPTIONS] = {
     0x3AC5,  // 1 -  Orange
     0xBA45,  // 2 -  Blue
     0x827D,  // 3 -  Rose
@@ -244,6 +245,16 @@ void loop()
         encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
         encoderDifference = 0;
         
+        // Wrap around the limit for the main screen
+        if(encoderPosition >= LIGHTING_OPTIONS)
+        {
+            encoderPosition = 0;
+        }
+        else if(encoderPosition < 0)
+        {
+            encoderPosition = LIGHTING_OPTIONS - 1;
+        }
+        
         Serial.println(encoderPosition);
         
         // Print the encoder position to the lcd for debugging
@@ -267,7 +278,6 @@ void loop()
         }
         
         encoderClickStatus = true;
-        
         //Serial.println(F("Click "));
     }
     else if(digitalRead(ENCODER_CLICK == 1))
@@ -426,7 +436,7 @@ void sendIRCode(int cmd, byte numTimes)
     // cmd = the element of the arrCode[] array that holds the IR code to be sent
   // numTimes = number of times to emmit the command
   // Shift header 16 bits to left, fetch code from PROGMEM & add it
-    unsigned long irCode = (codeHeader << 16) + pgm_read_word_near(arrCodes + cmd);
+    unsigned long irCode = (codeHeader << 16) + pgm_read_word_near(lightCodes + cmd);
     for( byte i = 0; i < numTimes; i++)
     {
         irsend.sendNEC(irCode,32); // Send/emmit code
@@ -441,6 +451,8 @@ void sendIRCode(int cmd, byte numTimes)
     Serial.print(":");
     Serial.println(second());
     
+    lcd.setCursor(0,2);
+    lcd.print(F("                    ")); // Hackishly clear the line
     lcd.setCursor(0,2);
     lcd.print(PGMSTR(lightingMessage[cmd]));
 }
@@ -463,14 +475,14 @@ int availableRAM()
 
 void encoderClicked()
 {
-    // Do something here
-    sendIRCode(encoderPosition, 2);
-    
     // Beep
     analogWrite(BEEPER, 128);
     delay(100);
     analogWrite(BEEPER, 0);
     //tone(BEEPER, 500, 10);
+    
+    // Do something here
+    sendIRCode(encoderPosition, 2);
 }
 
 void encoderUnClicked()
