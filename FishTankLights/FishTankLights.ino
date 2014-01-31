@@ -43,7 +43,6 @@
 #define BEEPER 6
 
 // Encoder information
-#define ENCODER_CLICK_MASK (1 << 2)
 #define ENCODER_B_MASK (1 << 1)
 #define ENCODER_A_MASK (1 << 0)
 
@@ -72,14 +71,14 @@ LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 
 byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used by RandomStorm()
 
+char lcdDisplay[4][20];
+
 // Encoder variables
 volatile int encoderDifference = 0;
 uint8_t encoderPosition = 0;
 volatile uint8_t encoderBits = 0;
 volatile uint8_t previousEncoderBits = 0;
-volatile bool encoderClickStatus = false;
-volatile bool encoderWasClicked = false;
-volatile bool encoderWasUnClicked = false;
+bool encoderClickStatus = false;
 
 // Function definitions
 void setAlarms();
@@ -207,6 +206,12 @@ void setup()
     digitalWrite(ENCODER_CLICK,HIGH);
     
     attachInterrupt(0, readEncoder, CHANGE);
+    
+    // Clear the LCD display
+    for(byte i = 0; i < LCD_ROWS; i ++)
+    {
+        memset(lcdDisplay[i], ' ', LCD_COLUMNS);
+    }
 }
 
 void loop()
@@ -244,12 +249,8 @@ void loop()
         delay(10);
         analogWrite(BEEPER, 0);
         
-        //lcdDrawUpdate = 1;
         encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
         encoderDifference = 0;
-        //timeoutToStatus = millis() + LCD_TIMEOUT_TO_STATUS;
-        
-        //sendIRCode(encoderPosition, 2);
         
         Serial.println(encoderPosition);
         
@@ -258,20 +259,46 @@ void loop()
         lcd.print(F("                    ")); // Hackishly clear the line
         lcd.setCursor(0,3);
         lcd.print(encoderPosition);
+        
+        // Print the light type
+        lcd.print(F(" "));
+        lcd.print(PGMSTR(lightingMessage[encoderPosition]));
     }
     
     // Check the encoder click button
-    if(encoderWasClicked)
+    if(digitalRead(ENCODER_CLICK) == 0)
     {
-        encoderWasClicked = false;
+        // Button transitions from not clicked to clicked
+        if(encoderClickStatus == false)
+        {
+            encoderClicked();
+        }
         
-        encoderClicked();
+        encoderClickStatus = true;
+        
+        //Serial.println(F("Click "));
     }
-    if(encoderWasUnClicked)
+    else if(digitalRead(ENCODER_CLICK == 1))
     {
-        encoderWasUnClicked = false;
+        if(encoderClickStatus == true)
+        {
+            encoderUnClicked();
+        }
         
-        encoderUnClicked();
+        encoderClickStatus = false;
+    }
+}
+
+void updateLCD()
+{
+    lcd.setCursor(0, 0);
+    
+    for(byte row = 0; row < LCD_ROWS; row ++)
+    {
+        for(byte column = 0; column < LCD_COLUMNS; column ++)
+        {
+            lcd.print(lcdDisplay[row][column]);
+        }
     }
 }
 
@@ -434,16 +461,9 @@ void sendIRCode(int cmd, byte numTimes)
     Serial.print(minute());
     Serial.print(":");
     Serial.println(second());
-    if (LCD_COLUMNS == 16)
-    {
-        lcd.setCursor(0,1);
-        lcd.print(PGMSTR(lightingMessage[cmd]));
-    }
-    else
-    {
-        lcd.setCursor(0,2);
-        lcd.print(PGMSTR(lightingMessage[cmd]));
-    }
+    
+    lcd.setCursor(0,2);
+    lcd.print(PGMSTR(lightingMessage[cmd]));
 }
 
 void printNumberToLCDWithLeadingZeros(int numberToPrint)
@@ -465,6 +485,7 @@ int availableRAM()
 void encoderClicked()
 {
     // Do something here
+    sendIRCode(encoderPosition, 2);
     
     // Beep
     analogWrite(BEEPER, 128);
@@ -488,30 +509,6 @@ void readEncoder()
     if(digitalRead(ENCODER_B) == 0)
     {
         encoderBits |= ENCODER_B_MASK;
-    }
-    if(digitalRead(ENCODER_CLICK) == 0)
-    {
-        // Button transitions from not clicked to clicked
-        if(encoderClickStatus == false)
-        {
-            //encoderClicked();
-            encoderWasClicked = true;
-        }
-        
-        encoderClickStatus = true;
-        
-        encoderBits |= ENCODER_CLICK_MASK;
-        //Serial.println(F("Click "));
-    }
-    else if(digitalRead(ENCODER_CLICK == 1))
-    {
-        if(encoderClickStatus == true)
-        {
-            //encoderUnClicked();
-            encoderWasUnClicked = true;
-        }
-        
-        encoderClickStatus = false;
     }
     // Determine the encoder rotation change
     if(encoderBits != previousEncoderBits)
