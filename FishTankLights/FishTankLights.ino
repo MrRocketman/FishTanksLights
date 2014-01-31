@@ -87,7 +87,6 @@ void scheduleRandomStorm();
 int serialReadInt();
 void processComputerCommands(int cmd);
 void sendIRCode(int cmd, byte numTimes);
-void printNumberToLCDWithLeadingZeros(int numberToPrint);
 int availableRAM();
 void encoderClicked();
 void encoderUnClicked();
@@ -226,6 +225,7 @@ void loop()
     Alarm.delay(0);
     
     // Print the time HH:MM:SS
+    addIntToLCDWithLeadingZeroAtPosition(hourFormat12(), 0, 0);
     lcd.setCursor(0,0);
     printNumberToLCDWithLeadingZeros(hourFormat12());
     lcd.print(":");
@@ -286,6 +286,54 @@ void loop()
         }
         
         encoderClickStatus = false;
+    }
+}
+
+void addIntToLCDAtPosition(int theInt, byte row, byte column)
+{
+    char string[6];
+    itoa(theInt, string, 10);
+    
+    for(byte i = column; i < column + 6; i ++)
+    {
+        if(i < LCD_COLUMNS)
+        {
+            lcdDisplay[row][i] = string[i];
+        }
+    }
+}
+
+void addIntToLCDWithLeadingZeroAtPosition(int theInt, byte row, byte column)
+{
+    char string[6];
+    itoa(theInt, string, 10);
+    byte i = column;
+    
+    if(theInt < 10)
+    {
+        lcdDisplay[row][0] = '0';
+        i ++;
+    }
+    
+    for(; i < column + 6; i ++)
+    {
+        if(i < LCD_COLUMNS)
+        {
+            lcdDisplay[row][i] = string[i];
+        }
+    }
+}
+
+void addStringToLCDAtPosition(char *string, byte row, byte column)
+{
+    byte stringLength = strlen(string);
+    
+    for(byte i = column; i < column + stringLength; i ++)
+    {
+        if(i < LCD_COLUMNS)
+        {
+            lcdDisplay[row][i] = string[i];
+        }
     }
 }
 
@@ -464,14 +512,6 @@ void sendIRCode(int cmd, byte numTimes)
     
     lcd.setCursor(0,2);
     lcd.print(PGMSTR(lightingMessage[cmd]));
-}
-
-void printNumberToLCDWithLeadingZeros(int numberToPrint)
-{
-    // Utility function for digital clock display: prints leading 0's
-    if(numberToPrint < 10)
-        lcd.print("0");
-    lcd.print(numberToPrint);
 }
 
 int availableRAM()
