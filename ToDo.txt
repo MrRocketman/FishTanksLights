@@ -1,0 +1,7 @@
+- Encoder A and B on interrupt pins (requires arduino mega)
+- LCD Menu
+- LCD display function
+- LCD display array
+- Encoder beep on timer
+- Only update LCD when necessary
+- Alarms array

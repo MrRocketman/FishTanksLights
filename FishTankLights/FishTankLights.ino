@@ -36,9 +36,9 @@
 #define LCD_DB6 11
 #define LCD_DB7 12
 
-#define ENCODER_A 4
-#define ENCODER_B 5
-#define ENCODER_CLICK 2
+#define ENCODER_A 2
+#define ENCODER_B 4
+#define ENCODER_CLICK 5
 
 #define BEEPER 6
 
@@ -52,7 +52,7 @@
 #define encrot2 3
 #define encrot3 1
 
-#define ENCODER_PULSES_PER_STEP 4
+#define ENCODER_PULSES_PER_STEP 2
 
 // LCD information
 #define LCD_COLUMNS 20      // Number of columns on the LCD (e.g. 16, 20, etc)
@@ -73,11 +73,13 @@ LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used by RandomStorm()
 
 // Encoder variables
-int encoderDifference = 0;
+volatile int encoderDifference = 0;
 uint8_t encoderPosition = 0;
-uint8_t encoderBits = 0;
-uint8_t previousEncoderBits = 0;
-bool encoderClickStatus = false;
+volatile uint8_t encoderBits = 0;
+volatile uint8_t previousEncoderBits = 0;
+volatile bool encoderClickStatus = false;
+volatile bool encoderWasClicked = false;
+volatile bool encoderWasUnClicked = false;
 
 // Function definitions
 void setAlarms();
@@ -90,6 +92,7 @@ void printNumberToLCDWithLeadingZeros(int numberToPrint);
 int availableRAM();
 void encoderClicked();
 void encoderUnClicked();
+void readEncoder();
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
@@ -202,6 +205,8 @@ void setup()
     digitalWrite(ENCODER_A,HIGH);
     digitalWrite(ENCODER_B,HIGH);
     digitalWrite(ENCODER_CLICK,HIGH);
+    
+    attachInterrupt(0, readEncoder, CHANGE);
 }
 
 void loop()
@@ -231,84 +236,10 @@ void loop()
         lcd.print(F(" PM"));
     }
     
-    // Read the rotary encoder
-    if(digitalRead(ENCODER_A) == 0)
-    {
-        encoderBits |= ENCODER_A_MASK;
-    }
-    if(digitalRead(ENCODER_B) == 0)
-    {
-        encoderBits |= ENCODER_B_MASK;
-    }
-    if(digitalRead(ENCODER_CLICK) == 0)
-    {
-        // Button transitions from not clicked to clicked
-        if(encoderClickStatus == false)
-        {
-            encoderClicked();
-            
-            // Beep
-            analogWrite(BEEPER, 128);
-            delay(100);
-            analogWrite(BEEPER, 0);
-            //tone(BEEPER, 500, 10);
-        }
-        
-        encoderClickStatus = true;
-        
-        encoderBits |= ENCODER_CLICK_MASK;
-        Serial.println(F("Click "));
-    }
-    else if(digitalRead(ENCODER_CLICK == 1))
-    {
-        if(encoderClickStatus == true)
-        {
-            encoderUnClicked();
-        }
-        
-        encoderClickStatus = false;
-    }
-    // Determine the encoder rotation change
-    if(encoderBits != previousEncoderBits)
-    {
-        switch(encoderBits)
-        {
-            case encrot0:
-                Serial.println(F("rotation0"));
-                if(previousEncoderBits == encrot3)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot1)
-                    encoderDifference --;
-                break;
-            case encrot1:
-                Serial.println(F("rotation1"));
-                if(previousEncoderBits == encrot0)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot2)
-                    encoderDifference --;
-                break;
-            case encrot2:
-                Serial.println(F("rotation2"));
-                if(previousEncoderBits == encrot1)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot3)
-                    encoderDifference --;
-                break;
-            case encrot3:
-                Serial.println(F("rotation3"));
-                if(previousEncoderBits == encrot2)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot0)
-                    encoderDifference --;
-                break;
-        }
-    }
-    previousEncoderBits = encoderBits;
-    encoderBits = 0;
-    
     // See if the encoder has moved the required amount
     if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
     {
+        // Quick beep
         analogWrite(BEEPER, 128);
         delay(10);
         analogWrite(BEEPER, 0);
@@ -318,6 +249,8 @@ void loop()
         encoderDifference = 0;
         //timeoutToStatus = millis() + LCD_TIMEOUT_TO_STATUS;
         
+        //sendIRCode(encoderPosition, 2);
+        
         Serial.println(encoderPosition);
         
         // Print the encoder position to the lcd for debugging
@@ -325,6 +258,20 @@ void loop()
         lcd.print(F("                    ")); // Hackishly clear the line
         lcd.setCursor(0,3);
         lcd.print(encoderPosition);
+    }
+    
+    // Check the encoder click button
+    if(encoderWasClicked)
+    {
+        encoderWasClicked = false;
+        
+        encoderClicked();
+    }
+    if(encoderWasUnClicked)
+    {
+        encoderWasUnClicked = false;
+        
+        encoderUnClicked();
     }
 }
 
@@ -518,11 +465,91 @@ int availableRAM()
 void encoderClicked()
 {
     // Do something here
+    
+    // Beep
+    analogWrite(BEEPER, 128);
+    delay(100);
+    analogWrite(BEEPER, 0);
+    //tone(BEEPER, 500, 10);
 }
 
 void encoderUnClicked()
 {
     // Do something here
+}
+
+void readEncoder()
+{
+    // Read the rotary encoder
+    if(digitalRead(ENCODER_A) == 0)
+    {
+        encoderBits |= ENCODER_A_MASK;
+    }
+    if(digitalRead(ENCODER_B) == 0)
+    {
+        encoderBits |= ENCODER_B_MASK;
+    }
+    if(digitalRead(ENCODER_CLICK) == 0)
+    {
+        // Button transitions from not clicked to clicked
+        if(encoderClickStatus == false)
+        {
+            //encoderClicked();
+            encoderWasClicked = true;
+        }
+        
+        encoderClickStatus = true;
+        
+        encoderBits |= ENCODER_CLICK_MASK;
+        //Serial.println(F("Click "));
+    }
+    else if(digitalRead(ENCODER_CLICK == 1))
+    {
+        if(encoderClickStatus == true)
+        {
+            //encoderUnClicked();
+            encoderWasUnClicked = true;
+        }
+        
+        encoderClickStatus = false;
+    }
+    // Determine the encoder rotation change
+    if(encoderBits != previousEncoderBits)
+    {
+        switch(encoderBits)
+        {
+            case encrot0:
+                //Serial.println(F("rotation0"));
+                if(previousEncoderBits == encrot3)
+                    encoderDifference ++;
+                else if(previousEncoderBits == encrot1)
+                    encoderDifference --;
+                break;
+            case encrot1:
+                //Serial.println(F("rotation1"));
+                if(previousEncoderBits == encrot0)
+                    encoderDifference ++;
+                else if(previousEncoderBits == encrot2)
+                    encoderDifference --;
+                break;
+            case encrot2:
+                //Serial.println(F("rotation2"));
+                if(previousEncoderBits == encrot1)
+                    encoderDifference ++;
+                else if(previousEncoderBits == encrot3)
+                    encoderDifference --;
+                break;
+            case encrot3:
+                //Serial.println(F("rotation3"));
+                if(previousEncoderBits == encrot2)
+                    encoderDifference ++;
+                else if(previousEncoderBits == encrot0)
+                    encoderDifference --;
+                break;
+        }
+    }
+    previousEncoderBits = encoderBits;
+    encoderBits = 0;
 }
 
 // IR Code functions, called by alarms
