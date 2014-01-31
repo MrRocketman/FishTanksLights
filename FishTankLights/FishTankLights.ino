@@ -281,19 +281,6 @@ void loop()
     }
 }
 
-void updateLCD()
-{
-    lcd.setCursor(0, 0);
-    
-    for(byte row = 0; row < LCD_ROWS; row ++)
-    {
-        for(byte column = 0; column < LCD_COLUMNS; column ++)
-        {
-            lcd.print(lcdDisplay[row][column]);
-        }
-    }
-}
-
 void setAlarms()
 {
     // Set up your desired alarms here
