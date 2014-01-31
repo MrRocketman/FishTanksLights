@@ -71,8 +71,6 @@ LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 
 byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used by RandomStorm()
 
-char lcdDisplay[4][20];
-
 // Encoder variables
 volatile int encoderDifference = 0;
 uint8_t encoderPosition = 0;
@@ -206,12 +204,6 @@ void setup()
     digitalWrite(ENCODER_CLICK,HIGH);
     
     attachInterrupt(0, readEncoder, CHANGE);
-    
-    // Clear the LCD display
-    for(byte i = 0; i < LCD_ROWS; i ++)
-    {
-        memset(lcdDisplay[i], ' ', LCD_COLUMNS);
-    }
 }
 
 void loop()
