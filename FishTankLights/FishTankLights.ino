@@ -42,7 +42,7 @@
 
 #define BEEPER 6
 
-// Encoder information
+// LCD Encoder knob information
 #define ENCODER_B_MASK (1 << 1)
 #define ENCODER_A_MASK (1 << 0)
 
@@ -237,11 +237,6 @@ void loop()
     // See if the encoder has moved the required amount
     if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
     {
-        // Quick beep
-        analogWrite(BEEPER, 128);
-        delay(10);
-        analogWrite(BEEPER, 0);
-        
         encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
         encoderDifference = 0;
         
