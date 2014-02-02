@@ -17,8 +17,9 @@
 // by sending in a value from 1 - 32. Values follow the remote control,
 // left to right, top to bottom (e.g 1 = Orange, 2 = Blue, 21 = Moon1, etc)
 //
-// Install LCD per instructions at http://learn.adafruit.com/character-lcds/overview
+// You'll need this type of LCD to make this work: http://www.hobbyking.com/hobbyking/store/__46899__3D_Printer_RepRap_Smart_Controller_Ramps_LCD_Control_.html
 //
+
 #include <Wire.h>
 #include <RTClib.h>
 #include <Time.h>
