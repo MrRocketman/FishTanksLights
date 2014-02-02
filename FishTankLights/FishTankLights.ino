@@ -26,6 +26,7 @@
 #include <IRremote.h>
 #include <LiquidCrystal.h>
 #include <avr/pgmspace.h>
+#include <EEPROM.h>
 
 
 // Pin definitions
@@ -64,6 +65,8 @@
 // Macro to print a string stored in flash memory
 #define PGMSTR(x) (__FlashStringHelper*)(x)
 
+#define RESERVED_ALARMS 2
+
 
 // Main object variables
 RTC_DS1307 RTC;
@@ -79,6 +82,20 @@ volatile uint8_t encoderBits = 0;
 volatile uint8_t previousEncoderBits = 0;
 bool encoderClickStatus = false;
 
+// Alarm callback function typedef
+typedef void (*LightEffectFunction)();
+// Alarm array
+typedef struct
+{
+	byte hour;
+    byte minute;
+    LightEffectFunction lightEffectFunction;
+    AlarmID_t alarmID;
+} lcdAlarm;
+
+lcdAlarm lcdAlarms[dtNBR_ALARMS - RESERVED_ALARMS];
+byte lcdAlarmsCount = 0;
+
 // Function definitions
 void setAlarms();
 time_t syncProvider();
@@ -91,6 +108,9 @@ int availableRAM();
 void encoderClicked();
 void encoderUnClicked();
 void readEncoder();
+void setLCDAlarms();
+void addLCDAlarm(byte hour, byte minute, LightEffectFunction lightEffectFunction);
+void setLCDAlarmAtIndex(byte index, byte hour, byte minute, LightEffectFunction lightEffectFunction);
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
@@ -188,7 +208,7 @@ void setup()
     Serial.print(minute(), 2);
     Serial.println(second(), 2);
     
-    setAlarms();  // Set up above alarms
+    setLCDAlarms();  // Set up above alarms
     
     // Print available SRAM for debugging, comment out if you want
     Serial.print(F("SRAM: "));
@@ -286,48 +306,66 @@ void loop()
     }
 }
 
-void setAlarms()
+void setLCDAlarms()
 {
-    // Set up your desired alarms here
-    // The default value of dtNBR_ALARMS is 6 in TimeAlarms.h.
-    // This code sets 6 alarms by default
-    // Changes the times to suit yourself. Add as many alarms as you like, just stay within dtNBR_ALARMS
-    Alarm.alarmRepeat(7,00,0, DawnDusk);
-    Alarm.alarmRepeat(9,00,0, Cloud2);     // (HR,MIN,SEC,FUNCTION)
-    Alarm.alarmRepeat(10,00,0, FullSpec);
-    Alarm.alarmRepeat(16,00,0, Cloud2);
-    Alarm.alarmRepeat(19,00,0, DawnDusk);
-    Alarm.alarmRepeat(21,00,0, Moon2);
+    // Soon this will read from EEPROM
     
+    addLCDAlarm(8, 00, Moon2);
+    addLCDAlarm(9, 00, DawnDusk);
+    addLCDAlarm(10, 00, Cloud2);
+    addLCDAlarm(11, 00, FullSpec);
+    addLCDAlarm(14, 00, Blue);
+    addLCDAlarm(18, 00, Cloud2);
+    addLCDAlarm(20, 00, DawnDusk);
+    addLCDAlarm(21, 00, Moon2);
+    addLCDAlarm(23, 59, M4Custom); // Off
+    
+    // Turn on the current lighting
     int theHour = hour();
-    if(theHour >= 7 && theHour < 9)
+    int theMinute = minute();
+    for(byte i = lcdAlarmsCount - 1; i >= 0; i --)
     {
-        DawnDusk();
+        if((theHour >= lcdAlarms[i].hour && theMinute >= lcdAlarms[i].minute))
+        {
+            (*(lcdAlarms[i].lightEffectFunction))(); // Haha, call the function for the current alarm
+            break;
+        }
     }
-    else if(theHour >= 9 && theHour < 10)
+    
+    if(theHour < lcdAlarms[0].hour && theMinute < lcdAlarms[0].minute)
     {
-        Cloud2();
-    }
-    else if(theHour >= 10 && theHour < 16)
-    {
-        FullSpec();
-    }
-    else if(theHour >= 16 && theHour < 19)
-    {
-        Cloud2();
-    }
-    else if(theHour >= 19 && theHour < 21)
-    {
-        DawnDusk();
-    }
-    else if((theHour >= 21 && theHour <= 23) || (theHour >= 0 && theHour < 7))
-    {
-        Moon2();
+        (*(lcdAlarms[lcdAlarmsCount - 1].lightEffectFunction))(); // Haha, call the function of the last alarm
     }
     
     // Comment these out if you don't want the chance of a random storm each day
     Alarm.alarmRepeat(12,00,00, scheduleRandomStorm);
     scheduleRandomStorm();  // Sets up intial storm so we don't have wait until alarm time
+}
+
+void addLCDAlarm(byte hour, byte minute, LightEffectFunction lightEffectFunction)
+{
+    lcdAlarms[lcdAlarmsCount].hour = hour;
+    lcdAlarms[lcdAlarmsCount].minute = minute;
+    lcdAlarms[lcdAlarmsCount].lightEffectFunction = lightEffectFunction;
+    
+    lcdAlarmsCount ++;
+    
+    // Actually create the alarm
+    lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
+}
+
+void setLCDAlarmAtIndex(byte index, byte hour, byte minute, LightEffectFunction lightEffectFunction)
+{
+    lcdAlarms[index].hour = hour;
+    lcdAlarms[index].minute = minute;
+    lcdAlarms[index].lightEffectFunction = lightEffectFunction;
+    
+    // Delete the alarm
+    
+    Alarm.free(lcdAlarms[index].alarmID);
+    
+    // Recreate the alarm
+    lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
 }
 
 time_t syncProvider()
@@ -456,7 +494,7 @@ void printNumberToLCDWithLeadingZeros(int numberToPrint)
 {
     // Utility function for digital clock display: prints leading 0's
     if(numberToPrint < 10)
-        lcd.print("0");
+        lcd.print(F("0"));
     lcd.print(numberToPrint);
 }
 

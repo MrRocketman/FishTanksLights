@@ -1,6 +1,9 @@
 - Encoder A and B on interrupt pins (requires arduino mega)
 - LCD Menu
-- Encoder beep on timer
 - Only update LCD when necessary
-- Alarms array
+- LCD Alarms array
+  - alarms must be entered chronologically for now, else undefined behavior
+    - The first alarm must be after midnight today, and the last one must be before midnight tomorrow
+  - Save to EEPROM
+  - Read from EEPROM
 - Set the time from the LCD
