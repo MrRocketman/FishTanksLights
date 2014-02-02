@@ -1,9 +1,10 @@
 - Encoder A and B on interrupt pins (requires arduino mega)
 - LCD Menu
 - Only update LCD when necessary
-- LCD Alarms array
+- LCD Alarms
   - alarms must be entered chronologically for now, else undefined behavior
     - The first alarm must be after midnight today, and the last one must be before midnight tomorrow
   - Save to EEPROM
   - Read from EEPROM
+  - Alarm sets (climates)
 - Set the time from the LCD
