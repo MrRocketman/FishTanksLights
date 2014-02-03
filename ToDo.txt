@@ -1,4 +1,4 @@
-- Encoder A and B on interrupt pins (requires arduino mega)
+- Encoder A and B on interrupt pins (requires arduino mega), plus the clicky button??
 - LCD Menu
 - Only update LCD when necessary
 - LCD Alarms
@@ -8,3 +8,7 @@
   - Read from EEPROM
   - Alarm sets (climates)
 - Set the time from the LCD
+- Toggle whether storms should happen
+- Add a DEBUG #define
+- Handle LCD's with only 2 rows
+  - Scroll down on the status menu

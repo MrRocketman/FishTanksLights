@@ -31,7 +31,7 @@
 
 
 // Pin definitions
-#define LCD_RS 7
+#define LCD_nextStormSecond 7
 #define LCD_ENABLE 8
 #define LCD_DB4 3
 #define LCD_DB5 10
@@ -57,6 +57,7 @@
 
 // LCD information
 #define LCD_COLUMNS 20      // Number of columns on the LCD (e.g. 16, 20, etc)
+#define LCD_BLANK_LINE ((LCD_COLUMNS == 20) ? "                    " : "                ")
 #define LCD_ROWS 4       // Number of rows on the LCD (e.g. 2, 4, etc)
 
 // FLASH String storage info
@@ -72,7 +73,7 @@
 // Main object variables
 RTC_DS1307 RTC;
 IRsend irsend;
-LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
+LiquidCrystal lcd(LCD_nextStormSecond, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 
 byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used by RandomStorm()
 
@@ -97,13 +98,24 @@ typedef struct
 lcdAlarm lcdAlarms[dtNBR_ALARMS - RESERVED_ALARMS];
 byte lcdAlarmsCount = 0;
 
+byte lcdMenuLayer = 0;
+
+int previousLCDUpdateSecond = 0;
+
+byte nextStormHour = 0;
+byte nextStormMinute = 0;
+byte nextStormDurationHours = 0;
+byte nextStormDurationMinutes = 0;
+
+byte lastIRCodeSent = 0;
+
 // Function definitions
 void setAlarms();
 time_t syncProvider();
 void scheduleRandomStorm();
 int serialReadInt();
 void processComputerCommands(int cmd);
-void sendIRCode(int cmd, byte numTimes);
+void sendIRCode(byte cmd, byte numTimes);
 void printNumberToLCDWithLeadingZeros(int numberToPrint);
 int availableRAM();
 void encoderClicked();
@@ -112,6 +124,14 @@ void readEncoder();
 void setLCDAlarms();
 void addLCDAlarm(byte hour, byte minute, LightEffectFunction lightEffectFunction);
 void setLCDAlarmAtIndex(byte index, byte hour, byte minute, LightEffectFunction lightEffectFunction);
+void setCurrentLightingAccordingToSchedule();
+LightEffectFunction getLightingForTime(byte hour, byte minute);
+void checkEncoderStatus();
+void clearLCDLine(byte lineNumber);
+void updateLCD();
+void showStatusMenu();
+void showLCDMainMenu();
+void encoderPositionChanged();
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
@@ -239,23 +259,11 @@ void loop()
     // Update the alarms
     Alarm.delay(0);
     
-    // Print the time HH:MM:SS
-    lcd.setCursor(0,0);
-    printNumberToLCDWithLeadingZeros(hourFormat12());
-    lcd.print(":");
-    printNumberToLCDWithLeadingZeros(minute());
-    lcd.print(":");
-    printNumberToLCDWithLeadingZeros(second());
-    if(isAM())
-    {
-        lcd.print(F(" AM"));
-    }
-    else
-    {
-        lcd.print(F(" PM"));
-    }
-    
+    // Check the encoder
     checkEncoderStatus();
+    
+    // Update the LCD :)
+    updateLCD();
 }
 
 void setLCDAlarms()
@@ -273,25 +281,36 @@ void setLCDAlarms()
     addLCDAlarm(23, 59, M4Custom); // Off
     
     // Turn on the current lighting
-    int theHour = hour();
-    int theMinute = minute();
+    setCurrentLightingAccordingToSchedule();
+    
+    // Comment these out if you don't want the chance of a random storm each day
+    Alarm.alarmRepeat(12,00,00, scheduleRandomStorm);
+    scheduleRandomStorm();  // Sets up intial storm so we don't have wait until alarm time
+}
+
+void setCurrentLightingAccordingToSchedule()
+{
+    (*(getLightingForTime(hour(), minute())))(); // Haha, call the function for the current alarm
+}
+
+LightEffectFunction getLightingForTime(byte hour, byte minute)
+{
+    int theHour = hour;
+    int theMinute = minute;
     for(byte i = lcdAlarmsCount - 1; i >= 0; i --)
     {
         if((theHour >= lcdAlarms[i].hour && theMinute >= lcdAlarms[i].minute))
         {
-            (*(lcdAlarms[i].lightEffectFunction))(); // Haha, call the function for the current alarm
-            break;
+            return lcdAlarms[i].lightEffectFunction;
         }
     }
     
     if(theHour < lcdAlarms[0].hour && theMinute < lcdAlarms[0].minute)
     {
-        (*(lcdAlarms[lcdAlarmsCount - 1].lightEffectFunction))(); // Haha, call the function of the last alarm
+        return lcdAlarms[lcdAlarmsCount - 1].lightEffectFunction;
     }
     
-    // Comment these out if you don't want the chance of a random storm each day
-    Alarm.alarmRepeat(12,00,00, scheduleRandomStorm);
-    scheduleRandomStorm();  // Sets up intial storm so we don't have wait until alarm time
+    return NULL;
 }
 
 void addLCDAlarm(byte hour, byte minute, LightEffectFunction lightEffectFunction)
@@ -365,60 +384,45 @@ void scheduleRandomStorm()
     // Schedules a storm between 1 & 8 in the evening
     // It sets Storm2, followed by Cloud2 or DawnDusk or Moon2, depending on when the storm is over
     randomSeed(analogRead(randAnalogPin));  // Generate random seed on unused pin
-    byte RH = random(23);                   // Randomizer for RandomStorm
-    byte RM = random(59);
-    byte RS = random(59);
-    byte TSDurationH = random(2);
-    byte TSDurationM = random(59);
+    byte nextStormHour = random(23);                   // Randomizer for RandomStorm
+    byte nextStormMinute = random(59);
+    byte nextStormSecond = random(59);
+    byte nextStormDurationHours = random(2);
+    byte nextStormDurationMinutes = random(59);
     
-    lcd.setCursor(0,1);
-    if (RH >= 13 && RH <= 21)
-    { // If 1:00PM - 8:00PM schedule a storm
-        Alarm.alarmOnce(RH,RM,RS,Storm2);
+    // If 1:00PM - 8:00PM schedule a storm
+    if (nextStormHour >= 13 && nextStormHour <= 21)
+    {
+        // Schedule the storm
+        Alarm.alarmOnce(nextStormHour, nextStormMinute, nextStormSecond, Storm2);
         
+        // Show storm info to the console
         Serial.print(F("Shcedule Storm: "));
-        Serial.print(RH);
-        Serial.print(":");
-        Serial.print(RM);
-        Serial.print(":");
-        Serial.print(RS);
+        Serial.print(nextStormHour);
+        Serial.print(F(":"));
+        Serial.print(nextStormMinute);
+        Serial.print(F(":"));
+        Serial.print(nextStormSecond);
         Serial.print(F(" Duration: "));
-        Serial.print(TSDurationH);
-        Serial.print(":");
-        Serial.print(TSDurationM);
+        Serial.print(nextStormDurationHours);
+        Serial.print(F(":"));
+        Serial.print(nextStormDurationMinutes);
         
-        lcd.print(F("Storm Time: "));
-        printNumberToLCDWithLeadingZeros(hourFormat12(RH));
-        lcd.print(":");
-        printNumberToLCDWithLeadingZeros(RM);
-        if(isAM())
-        {
-            lcd.print(F(" AM"));
-        }
-        else
-        {
-            lcd.print(F(" PM"));
-        }
-        
-        if ((RH + TSDurationH) < 19)   // Switch to Cloud2 if storm ends between 1:00-6:59pm
-        {
-            Alarm.alarmOnce((RH + TSDurationH),(RM + TSDurationM),RS,Cloud2);
-        }
-        else if ((RH + TSDurationH) < 21)  // Switch to DawnDusk if storm ends between 7:00-8:59pm
-        {
-            Alarm.alarmOnce((RH + TSDurationH),(RM + TSDurationM),RS,DawnDusk);
-        }
-        else                               // Otherwise, switch to Night2
-        {
-            Alarm.alarmOnce((RH + TSDurationH),(RM + TSDurationM),RS,Moon2);
-        }
+        // Schedule an alarm to change the weather back to the scheduled weather once the storm is over
+        Alarm.alarmOnce((nextStormHour + nextStormDurationHours), (nextStormMinute + nextStormDurationMinutes), nextStormSecond, getLightingForTime((nextStormHour + nextStormDurationHours), (nextStormMinute + nextStormDurationMinutes)));
     }
     else
     {
+        // Set the duration to 0 so we know that there is no storm
+        nextStormDurationHours = 0;
+        nextStormDurationMinutes = 0;
+        
         // Don't really need this, but it can stay till we need the space
         Serial.println(F("No storm today"));
-        lcd.print(F("No storm today"));
     }
+    
+    // Don't "need" this because the lcd gets updated every loop anyways, but this is more verbose
+    updateLCD();
 }
 
 int serialReadInt()
@@ -450,7 +454,7 @@ void processComputerCommands(int cmd)
     }
 }
 
-void sendIRCode(int cmd, byte numTimes)
+void sendIRCode(byte cmd, byte numTimes)
 {
     // cmd = the element of the arrCode[] array that holds the IR code to be sent
   // numTimes = number of times to emmit the command
@@ -461,6 +465,7 @@ void sendIRCode(int cmd, byte numTimes)
         irsend.sendNEC(irCode,32); // Send/emmit code
         delay(100);
     }
+    
     // Print the string associated with the IR code & the time
     Serial.print(PGMSTR(lightingMessage[cmd]));
     Serial.print(": ");
@@ -470,10 +475,18 @@ void sendIRCode(int cmd, byte numTimes)
     Serial.print(":");
     Serial.println(second());
     
-    lcd.setCursor(0,2);
-    lcd.print(F("                    ")); // Hackishly clear the line
-    lcd.setCursor(0,2);
-    lcd.print(PGMSTR(lightingMessage[cmd]));
+    lastIRCodeSent = cmd;
+    
+    // Don't "need" this because the lcd gets updated every loop anyways, but this is more verbose
+    updateLCD();
+}
+
+int availableRAM()
+{
+    // Returns available SRAM
+    extern int __heap_start, *__brkval;
+    int v;
+    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 
 void printNumberToLCDWithLeadingZeros(int numberToPrint)
@@ -484,12 +497,81 @@ void printNumberToLCDWithLeadingZeros(int numberToPrint)
     lcd.print(numberToPrint);
 }
 
-int availableRAM()
+void clearLCDLine(byte lineNumber)
 {
-    // Returns available SRAM
-    extern int __heap_start, *__brkval;
-    int v;
-    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+    lcd.setCursor(0, lineNumber);
+    lcd.print(LCD_BLANK_LINE);
+}
+
+void updateLCD()
+{
+    if(lcdMenuLayer == 0)
+    {
+        showStatusMenu();
+    }
+    else if(lcdMenuLayer == 1)
+    {
+        showLCDMainMenu();
+    }
+}
+
+void showStatusMenu()
+{
+    
+    // Update the LCD once a second - This needs to be improved to better handle changes
+    if(second() != previousLCDUpdateSecond)
+    {
+        lcd.clear();
+        
+        // Print the time HH:MM:SS
+        lcd.setCursor(0,0);
+        printNumberToLCDWithLeadingZeros(hourFormat12());
+        lcd.print(":");
+        printNumberToLCDWithLeadingZeros(minute());
+        lcd.print(":");
+        printNumberToLCDWithLeadingZeros(second());
+        if(isAM())
+        {
+            lcd.print(F(" AM"));
+        }
+        else
+        {
+            lcd.print(F(" PM"));
+        }
+        previousLCDUpdateSecond = second();
+        
+        // Show storm info
+        if(nextStormDurationHours == 0 && nextStormDurationMinutes == 0)
+        {
+            lcd.setCursor(0,1);
+            lcd.print(F("No storm today"));
+        }
+        else
+        {
+            lcd.setCursor(0,1);
+            lcd.print(F("Storm Time: "));
+            printNumberToLCDWithLeadingZeros(hourFormat12(nextStormHour));
+            lcd.print(F(":"));
+            printNumberToLCDWithLeadingZeros(nextStormMinute);
+            if(isAM())
+            {
+                lcd.print(F(" AM"));
+            }
+            else
+            {
+                lcd.print(F(" PM"));
+            }
+        }
+        
+        // Show the lighting info
+        lcd.setCursor(0,2);
+        lcd.print(PGMSTR(lightingMessage[lastIRCodeSent]));
+    }
+}
+
+void showLCDMainMenu()
+{
+    
 }
 
 void encoderPositionChanged()
@@ -504,6 +586,13 @@ void encoderClicked()
     delay(100);
     analogWrite(BEEPER, 0);
     //tone(BEEPER, 500, 10);
+    
+    if(lcdMenuLayer == 0)
+    {
+        lcdMenuLayer ++;
+    }
+    
+    updateLCD();
 }
 
 void encoderUnClicked()
