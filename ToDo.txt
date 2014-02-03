@@ -12,3 +12,4 @@
 - Add a DEBUG #define
 - Handle LCD's with only 2 rows
   - Scroll down on the status menu
+- Show which schedule is running on the status layer

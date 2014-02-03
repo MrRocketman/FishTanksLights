@@ -9,9 +9,7 @@
 // This version uses Ken Shirriff's IRremote library to Rx/Tx the IR codes
 // http://www.righto.com/2009/08/multi-protocol-infrared-remote-library.html
 //
-// This code does NOT use PIN 13 on the Uno, as do previous versions
-// Instead PIN 3, which is a PWM pin, is used. So you'll need to connect
-// your LED to PIN 3 instead of PIN 13 for it to work.
+// This uses pin 9 on a mega for the ir led, and pin 3 on an uno for the ir led
 //
 // You can test the IR commands via the Arduino software's serial monitor
 // by sending in a value from 1 - 32. Values follow the remote control,
@@ -31,7 +29,7 @@
 
 
 // Pin definitions
-#define LCD_nextStormSecond 7
+#define LCD_RS 7
 #define LCD_ENABLE 8
 #define LCD_DB4 3
 #define LCD_DB5 10
@@ -73,7 +71,7 @@
 // Main object variables
 RTC_DS1307 RTC;
 IRsend irsend;
-LiquidCrystal lcd(LCD_nextStormSecond, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
+LiquidCrystal lcd(LCD_RS, LCD_ENABLE, LCD_DB4, LCD_DB5, LCD_DB6, LCD_DB7);
 
 byte randAnalogPin = 0;   // This needs to be set to an unused Analog pin, Used by RandomStorm()
 
@@ -517,7 +515,6 @@ void updateLCD()
 
 void showStatusMenu()
 {
-    
     // Update the LCD once a second - This needs to be improved to better handle changes
     if(second() != previousLCDUpdateSecond)
     {
