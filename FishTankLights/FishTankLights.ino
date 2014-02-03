@@ -33,7 +33,7 @@
 // Pin definitions
 #define LCD_RS 7
 #define LCD_ENABLE 8
-#define LCD_DB4 9
+#define LCD_DB4 3
 #define LCD_DB5 10
 #define LCD_DB6 11
 #define LCD_DB7 12
