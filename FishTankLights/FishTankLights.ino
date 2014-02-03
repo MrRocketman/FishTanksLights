@@ -255,56 +255,7 @@ void loop()
         lcd.print(F(" PM"));
     }
     
-    // See if the encoder has moved the required amount
-    if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
-    {
-        encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
-        encoderDifference = 0;
-        
-        // Wrap around the limit for the main screen
-        if(encoderPosition >= LIGHTING_OPTIONS)
-        {
-            encoderPosition = 0;
-        }
-        else if(encoderPosition < 0)
-        {
-            encoderPosition = LIGHTING_OPTIONS - 1;
-        }
-        
-        Serial.println(encoderPosition);
-        
-        // Print the encoder position to the lcd for debugging
-        lcd.setCursor(0,3);
-        lcd.print(F("                    ")); // Hackishly clear the line
-        lcd.setCursor(0,3);
-        lcd.print(encoderPosition);
-        
-        // Print the light type
-        lcd.print(F(" "));
-        lcd.print(PGMSTR(lightingMessage[encoderPosition]));
-    }
-    
-    // Check the encoder click button
-    if(digitalRead(ENCODER_CLICK) == 0)
-    {
-        // Button transitions from not clicked to clicked
-        if(encoderClickStatus == false)
-        {
-            encoderClicked();
-        }
-        
-        encoderClickStatus = true;
-        //Serial.println(F("Click "));
-    }
-    else if(digitalRead(ENCODER_CLICK == 1))
-    {
-        if(encoderClickStatus == true)
-        {
-            encoderUnClicked();
-        }
-        
-        encoderClickStatus = false;
-    }
+    checkEncoderStatus();
 }
 
 void setLCDAlarms()
@@ -367,6 +318,40 @@ void setLCDAlarmAtIndex(byte index, byte hour, byte minute, LightEffectFunction 
     
     // Recreate the alarm
     lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
+}
+
+void checkEncoderStatus()
+{
+    // See if the encoder has moved the required amount
+    if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
+    {
+        encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
+        encoderDifference = 0;
+        
+        encoderPositionChanged();
+    }
+    
+    // Check the encoder click button
+    if(digitalRead(ENCODER_CLICK) == 0)
+    {
+        // Button transitions from not clicked to clicked
+        if(encoderClickStatus == false)
+        {
+            encoderClicked();
+        }
+        
+        encoderClickStatus = true;
+        //Serial.println(F("Click "));
+    }
+    else if(digitalRead(ENCODER_CLICK == 1))
+    {
+        if(encoderClickStatus == true)
+        {
+            encoderUnClicked();
+        }
+        
+        encoderClickStatus = false;
+    }
 }
 
 time_t syncProvider()
@@ -507,6 +492,11 @@ int availableRAM()
     return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 
+void encoderPositionChanged()
+{
+    
+}
+
 void encoderClicked()
 {
     // Beep
@@ -514,16 +504,6 @@ void encoderClicked()
     delay(100);
     analogWrite(BEEPER, 0);
     //tone(BEEPER, 500, 10);
-    
-    // Send the appropriate ir code
-    if(encoderPosition == 3 || encoderPosition == 7 || encoderPosition == 8 || encoderPosition == 9 || encoderPosition == 10 || encoderPosition == 11 || encoderPosition == 12 || encoderPosition == 13 || encoderPosition == 14 || encoderPosition == 15)
-    {
-        sendIRCode(encoderPosition, 1);
-    }
-    else
-    {
-        sendIRCode(encoderPosition, 2);
-    }
 }
 
 void encoderUnClicked()
