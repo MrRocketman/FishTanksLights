@@ -97,6 +97,8 @@ lcdAlarm lcdAlarms[dtNBR_ALARMS - RESERVED_ALARMS];
 byte lcdAlarmsCount = 0;
 
 byte lcdMenuLayer = 0;
+byte lcdScrollPosition = 0;
+byte lcdSelectorPosition = 0;
 
 int previousLCDUpdateSecond = 0;
 
@@ -268,15 +270,15 @@ void setLCDAlarms()
 {
     // Soon this will read from EEPROM
     
-    addLCDAlarm(8, 00, Moon2);
-    addLCDAlarm(9, 00, DawnDusk);
-    addLCDAlarm(10, 00, Cloud2);
-    addLCDAlarm(11, 00, FullSpec);
+    addLCDAlarm(9, 00, Moon2);
+    addLCDAlarm(10, 00, DawnDusk);
+    addLCDAlarm(11, 00, Cloud2);
+    addLCDAlarm(12, 00, FullSpec);
     addLCDAlarm(14, 00, Blue);
     addLCDAlarm(18, 00, Cloud2);
-    addLCDAlarm(20, 00, DawnDusk);
-    addLCDAlarm(21, 00, Moon2);
-    addLCDAlarm(23, 59, M4Custom); // Off
+    addLCDAlarm(19, 00, DawnDusk);
+    addLCDAlarm(20, 00, Moon2);
+    addLCDAlarm(23, 00, M4Custom); // Off
     
     // Turn on the current lighting
     setCurrentLightingAccordingToSchedule();
