@@ -35,6 +35,7 @@
 #define LCD_DB5 10
 #define LCD_DB6 11
 #define LCD_DB7 12
+#define LCD_MOSFET A12
 
 #define ENCODER_A 2
 #define ENCODER_B 4
@@ -80,7 +81,7 @@ volatile int encoderDifference = 0;
 int encoderPosition = 0;
 volatile uint8_t encoderBits = 0;
 volatile uint8_t previousEncoderBits = 0;
-bool encoderClickStatus = false;
+bool encoderClickStatus = true;
 
 // Alarm callback function typedef
 typedef void (*LightEffectFunction)();
@@ -132,6 +133,8 @@ void updateLCD();
 void showStatusMenu();
 void showLCDMainMenu();
 void encoderPositionChanged();
+void LCDPowerOn();
+void LCDPowerOff();
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
@@ -211,7 +214,10 @@ void setup()
     Wire.begin();
     RTC.begin();
     Serial.begin(9600);
-    lcd.begin(LCD_COLUMNS, LCD_ROWS);
+    
+    //Set the LCD mosfet pin as an output
+    pinMode(LCD_MOSFET, OUTPUT);
+    LCDPowerOn();
     
     if(!RTC.isrunning())
     {
@@ -225,9 +231,11 @@ void setup()
     
     // Print the time
     Serial.print(F("Time: "));
-    Serial.print(hour(), 2);
-    Serial.print(minute(), 2);
-    Serial.println(second(), 2);
+    Serial.print(hour());
+    Serial.print(F(":"));
+    Serial.print(minute());
+    Serial.print(F(":"));
+    Serial.println(second());
     
     setLCDAlarms();  // Set up above alarms
     
@@ -275,9 +283,9 @@ void setLCDAlarms()
     addLCDAlarm(11, 00, Cloud2);
     addLCDAlarm(12, 00, FullSpec);
     addLCDAlarm(14, 00, Blue);
-    addLCDAlarm(18, 00, Cloud2);
-    addLCDAlarm(19, 00, DawnDusk);
-    addLCDAlarm(20, 00, Moon2);
+    addLCDAlarm(19, 00, Cloud2);
+    addLCDAlarm(20, 00, DawnDusk);
+    addLCDAlarm(21, 00, Moon2);
     addLCDAlarm(23, 00, M4Custom); // Off
     
     // Turn on the current lighting
@@ -381,16 +389,16 @@ time_t syncProvider()
 
 void scheduleRandomStorm()
 {
-    // Schedules a storm between 1 & 8 in the evening
+    // Schedules a storm between 1 & 9 in the evening
     // It sets Storm2, followed by Cloud2 or DawnDusk or Moon2, depending on when the storm is over
     randomSeed(analogRead(randAnalogPin));  // Generate random seed on unused pin
-    byte nextStormHour = random(23);                   // Randomizer for RandomStorm
-    byte nextStormMinute = random(59);
+    nextStormHour = random(23);                   // Randomizer for RandomStorm
+    nextStormMinute = random(59);
     byte nextStormSecond = random(59);
-    byte nextStormDurationHours = random(2);
-    byte nextStormDurationMinutes = random(59);
+    nextStormDurationHours = random(2);
+    nextStormDurationMinutes = random(59);
     
-    // If 1:00PM - 8:00PM schedule a storm
+    // If 1:00PM - 9:00PM schedule a storm
     if (nextStormHour >= 13 && nextStormHour <= 21)
     {
         // Schedule the storm
@@ -505,14 +513,14 @@ void clearLCDLine(byte lineNumber)
 
 void updateLCD()
 {
-    if(lcdMenuLayer == 0)
-    {
+    //if(lcdMenuLayer == 0)
+    //{
         showStatusMenu();
-    }
-    else if(lcdMenuLayer == 1)
-    {
-        showLCDMainMenu();
-    }
+    //}
+    //else if(lcdMenuLayer == 1)
+    //{
+    //    showLCDMainMenu();
+    //}
 }
 
 void showStatusMenu()
@@ -649,36 +657,46 @@ void readEncoder()
     encoderBits = 0;
 }
 
+void LCDPowerOn() 
+{
+    digitalWrite(LCD_MOSFET, HIGH);
+    lcd.begin(LCD_COLUMNS, LCD_ROWS);
+}
+void LCDPowerOff()
+{
+    digitalWrite(LCD_MOSFET, LOW);
+}
+
 // IR Code functions, called by alarms
-void Orange() {sendIRCode(0,2);}
-void Blue() {sendIRCode(1,2);}
-void Rose() {sendIRCode(2,2);}
+void Orange() {sendIRCode(0,2);LCDPowerOn();}
+void Blue() {sendIRCode(1,2);LCDPowerOn();}
+void Rose() {sendIRCode(2,2);LCDPowerOn();}
 void PowerOnOff() {sendIRCode(3,1);}
-void White() {sendIRCode(4,2);}
-void FullSpec() {sendIRCode(5,2);}
-void Purple() {sendIRCode(6,2);}
-void Play() {sendIRCode(7,1);}
-void RedUp() {sendIRCode(8,1);}
-void GreenUp() {sendIRCode(9,1);}
-void BlueUp() {sendIRCode(10,1);}
-void WhiteUp() {sendIRCode(11,1);}
-void RedDown() {sendIRCode(12,1);}
-void GreenDown() {sendIRCode(13,1);}
-void BlueDown() {sendIRCode(14,1);}
-void WhiteDown() {sendIRCode(15,1);}
-void M1Custom() {sendIRCode(16,2);}
-void M2Custom() {sendIRCode(17,2);}
-void M3Custom() {sendIRCode(18,2);}
-void M4Custom() {sendIRCode(19,2);}
-void Moon1() {sendIRCode(20,2);}
-void Moon2() {sendIRCode(21,2);}
-void Moon3() {sendIRCode(22,2);}
-void DawnDusk() {sendIRCode(23,2);}
-void Cloud1() {sendIRCode(24,2);}
-void Cloud2() {sendIRCode(25,2);}
-void Cloud3() {sendIRCode(26,2);}
-void Cloud4() {sendIRCode(27,2);}
-void Storm1() {sendIRCode(28,2);}
-void Storm2() {sendIRCode(29,2);}
-void Storm3() {sendIRCode(30,2);}
-void Storm4() {sendIRCode(31,2);}
+void White() {sendIRCode(4,2);LCDPowerOn();}
+void FullSpec() {sendIRCode(5,2);LCDPowerOn();}
+void Purple() {sendIRCode(6,2);LCDPowerOn();}
+void Play() {sendIRCode(7,1);LCDPowerOn();}
+void RedUp() {sendIRCode(8,1);LCDPowerOn();}
+void GreenUp() {sendIRCode(9,1);LCDPowerOn();}
+void BlueUp() {sendIRCode(10,1);LCDPowerOn();}
+void WhiteUp() {sendIRCode(11,1);LCDPowerOn();}
+void RedDown() {sendIRCode(12,1);LCDPowerOn();}
+void GreenDown() {sendIRCode(13,1);LCDPowerOn();}
+void BlueDown() {sendIRCode(14,1);LCDPowerOn();}
+void WhiteDown() {sendIRCode(15,1);LCDPowerOn();}
+void M1Custom() {sendIRCode(16,2);LCDPowerOn();}
+void M2Custom() {sendIRCode(17,2);LCDPowerOn();}
+void M3Custom() {sendIRCode(18,2);LCDPowerOn();}
+void M4Custom() {sendIRCode(19,2);LCDPowerOff();}
+void Moon1() {sendIRCode(20,2);LCDPowerOn();}
+void Moon2() {sendIRCode(21,2);LCDPowerOn();}
+void Moon3() {sendIRCode(22,2);LCDPowerOn();}
+void DawnDusk() {sendIRCode(23,2);LCDPowerOn();}
+void Cloud1() {sendIRCode(24,2);LCDPowerOn();}
+void Cloud2() {sendIRCode(25,2);LCDPowerOn();}
+void Cloud3() {sendIRCode(26,2);LCDPowerOn();}
+void Cloud4() {sendIRCode(27,2);LCDPowerOn();}
+void Storm1() {sendIRCode(28,2);LCDPowerOn();}
+void Storm2() {sendIRCode(29,2);LCDPowerOn();}
+void Storm3() {sendIRCode(30,2);LCDPowerOn();}
+void Storm4() {sendIRCode(31,2);LCDPowerOn();}
