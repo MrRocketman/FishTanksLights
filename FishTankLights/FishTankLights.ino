@@ -27,6 +27,21 @@
 #include <avr/pgmspace.h>
 #include <EEPROM.h>
 
+/*
+ * BOF preprocessor bug prevent
+ * insert me on top of your arduino-code
+ */
+#define nop() __asm volatile ("nop")
+#if 1
+nop();
+#endif
+/*
+ * EOF preprocessor bug prevent
+*/
+
+
+#define DEBUG 1
+
 
 // Pin definitions
 #define LCD_RS 7
@@ -68,6 +83,12 @@
 
 #define RESERVED_ALARMS 2
 
+#if DEBUG
+int loopTester = 0;
+long interval = 5000;
+long previousMillis = 0;
+#endif
+
 
 // Main object variables
 RTC_DS1307 RTC;
@@ -88,11 +109,12 @@ typedef void (*LightEffectFunction)();
 // Alarm array
 typedef struct
 {
-	byte hour;
-    byte minute;
-    LightEffectFunction lightEffectFunction;
-    AlarmID_t alarmID;
-} lcdAlarm;
+  byte hour;
+  byte minute;
+  LightEffectFunction lightEffectFunction;
+  AlarmID_t alarmID;
+} 
+lcdAlarm;
 
 lcdAlarm lcdAlarms[dtNBR_ALARMS - RESERVED_ALARMS];
 byte lcdAlarmsCount = 0;
@@ -138,565 +160,693 @@ void LCDPowerOff();
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
-                                   // Remote buttons listed left to right, top to bottom
+// Remote buttons listed left to right, top to bottom
 PROGMEM unsigned int lightCodes[LIGHTING_OPTIONS] = {
-    0x3AC5,  // 1 -  Orange
-    0xBA45,  // 2 -  Blue
-    0x827D,  // 3 -  Rose
-    0x02FD,  // 4 -  Power On/Off
-    0x1AE5,  // 5 -  White
-    0x9A65,  // 6 -  FullSpec
-    0xA25D,  // 7 -  Purple
-    0x22DD,  // 8 -  Play/Pause
-    0x2AD5,  // 9 -  Red Up
-    0xAA55,  // 10 - Green Up
-    0x926D,  // 11 - Blue Up
-    0x12ED,  // 12 - White Up
-    0x0AF5,  // 13 - Red Down
-    0x8A75,  // 14 - Green Down
-    0xB24D,  // 15 - Blue Down
-    0x32CD,  // 16 - White Down
-    0x38C7,  // 17 - M1 Custom
-    0xB847,  // 18 - M2 Custom
-    0x7887,  // 19 - M3 Custom
-    0xF807,  // 20 - M4 Custom
-    0x18E7,  // 21 - Moon 1
-    0x9867,  // 22 - Moon 2
-    0x58A7,  // 23 - Moon 3
-    0xD827,  // 24 - Dawn/Dusk
-    0x28D7,  // 25 - Cloud 1
-    0xA857,  // 26 - Cloud 2
-    0x6897,  // 27 - Cloud 3
-    0xE817,  // 28 - Cloud 4
-    0x08F7,  // 29 - Storm 1
-    0x8877,  // 30 - Storm 2
-    0x48B7,  // 31 - Storm 3
-    0xC837}; // 32 - Storm 4
+  0x3AC5,  // 1 -  Orange
+  0xBA45,  // 2 -  Blue
+  0x827D,  // 3 -  Rose
+  0x02FD,  // 4 -  Power On/Off
+  0x1AE5,  // 5 -  White
+  0x9A65,  // 6 -  FullSpec
+  0xA25D,  // 7 -  Purple
+  0x22DD,  // 8 -  Play/Pause
+  0x2AD5,  // 9 -  Red Up
+  0xAA55,  // 10 - Green Up
+  0x926D,  // 11 - Blue Up
+  0x12ED,  // 12 - White Up
+  0x0AF5,  // 13 - Red Down
+  0x8A75,  // 14 - Green Down
+  0xB24D,  // 15 - Blue Down
+  0x32CD,  // 16 - White Down
+  0x38C7,  // 17 - M1 Custom
+  0xB847,  // 18 - M2 Custom
+  0x7887,  // 19 - M3 Custom
+  0xF807,  // 20 - M4 Custom
+  0x18E7,  // 21 - Moon 1
+  0x9867,  // 22 - Moon 2
+  0x58A7,  // 23 - Moon 3
+  0xD827,  // 24 - Dawn/Dusk
+  0x28D7,  // 25 - Cloud 1
+  0xA857,  // 26 - Cloud 2
+  0x6897,  // 27 - Cloud 3
+  0xE817,  // 28 - Cloud 4
+  0x08F7,  // 29 - Storm 1
+  0x8877,  // 30 - Storm 2
+  0x48B7,  // 31 - Storm 3
+  0xC837}; // 32 - Storm 4
 
 // These are the messages that print on the serial monitor & lcd when each IR code is sent
 prog_char PROGMEM lightingMessage[][MAX_MSG_LEN + 1] = {
-    "Orange",
-    "Blue",
-    "Rose",
-    "Power On/Off",
-    "White",
-    "Full Spectrum",
-    "Purple",
-    "Play/Pause",
-    "Red Up",
-    "Green Up",
-    "Blue Up",
-    "White Up",
-    "Red Down",
-    "Green Down",
-    "Blue Down",
-    "White Down",
-    "Custom Mix 1",
-    "Custom Mix 2",
-    "Custom Mix 3",
-    "Custom Mix 4",
-    "Moonlight 1",
-    "Moonlight 2",
-    "Moonlight 3",
-    "Dawn/Dusk",
-    "Cloud Cover 1",
-    "Cloud Cover 2",
-    "Cloud Cover 3",
-    "Cloud Cover 4",
-    "Storm 1",
-    "Storm 2",
-    "Storm 3",
-    "Storm 4"
+  "Orange",
+  "Blue",
+  "Rose",
+  "Power On/Off",
+  "White",
+  "Full Spectrum",
+  "Purple",
+  "Play/Pause",
+  "Red Up",
+  "Green Up",
+  "Blue Up",
+  "White Up",
+  "Red Down",
+  "Green Down",
+  "Blue Down",
+  "White Down",
+  "Custom Mix 1",
+  "Custom Mix 2",
+  "Custom Mix 3",
+  "Custom Mix 4",
+  "Moonlight 1",
+  "Moonlight 2",
+  "Moonlight 3",
+  "Dawn/Dusk",
+  "Cloud Cover 1",
+  "Cloud Cover 2",
+  "Cloud Cover 3",
+  "Cloud Cover 4",
+  "Storm 1",
+  "Storm 2",
+  "Storm 3",
+  "Storm 4"
 };
 
 void setup()
 {
-    Wire.begin();
-    RTC.begin();
-    Serial.begin(9600);
-    
-    //Set the LCD mosfet pin as an output
-    pinMode(LCD_MOSFET, OUTPUT);
-    LCDPowerOn();
-    
-    if(!RTC.isrunning())
-    {
-        // If no RTC is installed, set time to compile time at each reset
-        Serial.println(F("RTC is NOT running!\n"));  // Store this string in PROGMEM
-        RTC.adjust(DateTime(__DATE__, __TIME__));
-    }
-    
-    // This keeps the RTC library and the Time library in sync
-    setSyncProvider(syncProvider);     // reference our syncProvider function instead of RTC_DS1307::get()
-    
-    // Print the time
-    Serial.print(F("Time: "));
-    Serial.print(hour());
-    Serial.print(F(":"));
-    Serial.print(minute());
-    Serial.print(F(":"));
-    Serial.println(second());
-    
-    setLCDAlarms();  // Set up above alarms
-    
+  Wire.begin();
+  RTC.begin();
+  Serial.begin(9600);
+
+  //Set the LCD mosfet pin as an output
+  pinMode(LCD_MOSFET, OUTPUT);
+  LCDPowerOn();
+
+  if(!RTC.isrunning())
+  {
+    // If no RTC is installed, set time to compile time at each reset
+    Serial.println(F("RTC is NOT running!\n"));  // Store this string in PROGMEM
+    RTC.adjust(DateTime(__DATE__, __TIME__));
+  }
+
+  // This keeps the RTC library and the Time library in sync
+  setSyncProvider(syncProvider);     // reference our syncProvider function instead of RTC_DS1307::get()
+
+  // Print the time
+  Serial.print(F("Time: "));
+  Serial.print(hour());
+  Serial.print(F(":"));
+  Serial.print(minute());
+  Serial.print(F(":"));
+  Serial.println(second());
+
+  setLCDAlarms();  // Set up above alarms
+
     // Print available SRAM for debugging, comment out if you want
-    Serial.print(F("SRAM: "));
-    Serial.print(availableRAM());
-    Serial.println(" bytes");
-    Serial.println(F("To test IR codes, send 1 - 32\n"));
-    
-    // Setup the click wheel encoder pins
-    pinMode(ENCODER_A,INPUT);
-    pinMode(ENCODER_B,INPUT);
-    pinMode(ENCODER_CLICK,INPUT);
-    digitalWrite(ENCODER_A,HIGH);
-    digitalWrite(ENCODER_B,HIGH);
-    digitalWrite(ENCODER_CLICK,HIGH);
-    
-    attachInterrupt(0, readEncoder, CHANGE);
+  Serial.print(F("SRAM: "));
+  Serial.print(availableRAM());
+  Serial.println(" bytes");
+  Serial.println(F("To test IR codes, send 1 - 32\n"));
+
+  // Setup the click wheel encoder pins
+  pinMode(ENCODER_A,INPUT);
+  pinMode(ENCODER_B,INPUT);
+  pinMode(ENCODER_CLICK,INPUT);
+  digitalWrite(ENCODER_A,HIGH);
+  digitalWrite(ENCODER_B,HIGH);
+  digitalWrite(ENCODER_CLICK,HIGH);
+
+  attachInterrupt(0, readEncoder, CHANGE);
 }
 
 void loop()
 {
-    // Check for computer commands
-    if (Serial.available() > 0)
-    {
-        processComputerCommands(serialReadInt());  // Go grab IR code and send it
+  // Check for computer commands
+  if (Serial.available() > 0)
+  {
+    processComputerCommands(serialReadInt());  // Go grab IR code and send it
+  }
+
+  // Update the alarms
+  Alarm.delay(0);
+
+#if DEBUG
+  unsigned long currentMillis = millis();
+  if(currentMillis - previousMillis > interval) {
+    previousMillis = currentMillis; 
+    
+    if (loopTester == 0) {
+      Moon2();
     }
-    
-    // Update the alarms
-    Alarm.delay(0);
-    
-    // Check the encoder
-    checkEncoderStatus();
-    
-    // Update the LCD :)
-    updateLCD();
+    else if (loopTester == 1) {
+      DawnDusk();
+    }
+    else if (loopTester == 2) {
+      Cloud2();
+    }
+    else if (loopTester == 3) {
+      Blue();
+    }
+    else if (loopTester == 4) {
+      DawnDusk();
+    }
+    else if (loopTester == 5) {
+      Moon2();
+    }
+    else if (loopTester == 6) {
+      M4Custom();
+      loopTester = -1;
+    }
+      
+    loopTester++;
+  }
+#endif
+
+  // Check the encoder
+  checkEncoderStatus();
+
+  // Update the LCD :)
+  updateLCD();
 }
 
 void setLCDAlarms()
 {
-    // Soon this will read from EEPROM
-    
-    addLCDAlarm(9, 00, Moon2);
-    addLCDAlarm(10, 00, DawnDusk);
-    addLCDAlarm(11, 00, Cloud2);
-    addLCDAlarm(12, 00, FullSpec);
-    addLCDAlarm(14, 00, Blue);
-    addLCDAlarm(19, 00, Cloud2);
-    addLCDAlarm(20, 00, DawnDusk);
-    addLCDAlarm(21, 00, Moon2);
-    addLCDAlarm(23, 00, M4Custom); // Off
-    
-    // Turn on the current lighting
-    setCurrentLightingAccordingToSchedule();
-    
-    // Comment these out if you don't want the chance of a random storm each day
-    Alarm.alarmRepeat(12,00,00, scheduleRandomStorm);
-    scheduleRandomStorm();  // Sets up intial storm so we don't have wait until alarm time
+  // Soon this will read from EEPROM
+
+  addLCDAlarm(9, 00, Moon2);
+  addLCDAlarm(10, 00, DawnDusk);
+  addLCDAlarm(11, 00, Cloud2);
+  addLCDAlarm(12, 00, FullSpec);
+  addLCDAlarm(14, 00, Blue);
+  addLCDAlarm(19, 00, Cloud2);
+  addLCDAlarm(20, 00, DawnDusk);
+  addLCDAlarm(21, 00, Moon2);
+  addLCDAlarm(23, 00, M4Custom); // Off
+
+  // Turn on the current lighting
+  setCurrentLightingAccordingToSchedule();
+
+  // Comment these out if you don't want the chance of a random storm each day
+  Alarm.alarmRepeat(12,00,00, scheduleRandomStorm);
+  scheduleRandomStorm();  // Sets up intial storm so we don't have wait until alarm time
 }
 
 void setCurrentLightingAccordingToSchedule()
 {
-    (*(getLightingForTime(hour(), minute())))(); // Haha, call the function for the current alarm
+  (*(getLightingForTime(hour(), minute())))(); // Haha, call the function for the current alarm
 }
 
 LightEffectFunction getLightingForTime(byte hour, byte minute)
 {
-    int theHour = hour;
-    int theMinute = minute;
-    for(byte i = lcdAlarmsCount - 1; i >= 0; i --)
+  int theHour = hour;
+  int theMinute = minute;
+  for(byte i = lcdAlarmsCount - 1; i >= 0; i --)
+  {
+    if((theHour >= lcdAlarms[i].hour && theMinute >= lcdAlarms[i].minute))
     {
-        if((theHour >= lcdAlarms[i].hour && theMinute >= lcdAlarms[i].minute))
-        {
-            return lcdAlarms[i].lightEffectFunction;
-        }
+      return lcdAlarms[i].lightEffectFunction;
     }
-    
-    if(theHour < lcdAlarms[0].hour && theMinute < lcdAlarms[0].minute)
-    {
-        return lcdAlarms[lcdAlarmsCount - 1].lightEffectFunction;
-    }
-    
-    return NULL;
+  }
+
+  if(theHour < lcdAlarms[0].hour && theMinute < lcdAlarms[0].minute)
+  {
+    return lcdAlarms[lcdAlarmsCount - 1].lightEffectFunction;
+  }
+
+  return NULL;
 }
 
 void addLCDAlarm(byte hour, byte minute, LightEffectFunction lightEffectFunction)
 {
-    lcdAlarms[lcdAlarmsCount].hour = hour;
-    lcdAlarms[lcdAlarmsCount].minute = minute;
-    lcdAlarms[lcdAlarmsCount].lightEffectFunction = lightEffectFunction;
-    
-    lcdAlarmsCount ++;
-    
-    // Actually create the alarm
-    lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
+  lcdAlarms[lcdAlarmsCount].hour = hour;
+  lcdAlarms[lcdAlarmsCount].minute = minute;
+  lcdAlarms[lcdAlarmsCount].lightEffectFunction = lightEffectFunction;
+
+  lcdAlarmsCount ++;
+
+  // Actually create the alarm
+  lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
 }
 
 void setLCDAlarmAtIndex(byte index, byte hour, byte minute, LightEffectFunction lightEffectFunction)
 {
-    lcdAlarms[index].hour = hour;
-    lcdAlarms[index].minute = minute;
-    lcdAlarms[index].lightEffectFunction = lightEffectFunction;
-    
-    // Delete the alarm
-    
-    Alarm.free(lcdAlarms[index].alarmID);
-    
-    // Recreate the alarm
-    lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
+  lcdAlarms[index].hour = hour;
+  lcdAlarms[index].minute = minute;
+  lcdAlarms[index].lightEffectFunction = lightEffectFunction;
+
+  // Delete the alarm
+
+  Alarm.free(lcdAlarms[index].alarmID);
+
+  // Recreate the alarm
+  lcdAlarms[lcdAlarmsCount].alarmID = Alarm.alarmRepeat(hour, minute, 0, lightEffectFunction);
 }
 
 void checkEncoderStatus()
 {
-    // See if the encoder has moved the required amount
-    if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
+  // See if the encoder has moved the required amount
+  if(abs(encoderDifference) >= ENCODER_PULSES_PER_STEP)
+  {
+    encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
+    encoderDifference = 0;
+
+    encoderPositionChanged();
+  }
+
+  // Check the encoder click button
+  if(digitalRead(ENCODER_CLICK) == 0)
+  {
+    // Button transitions from not clicked to clicked
+    if(encoderClickStatus == false)
     {
-        encoderPosition += encoderDifference / ENCODER_PULSES_PER_STEP;
-        encoderDifference = 0;
-        
-        encoderPositionChanged();
+      encoderClicked();
     }
-    
-    // Check the encoder click button
-    if(digitalRead(ENCODER_CLICK) == 0)
+
+    encoderClickStatus = true;
+    //Serial.println(F("Click "));
+  }
+  else if(digitalRead(ENCODER_CLICK == 1))
+  {
+    if(encoderClickStatus == true)
     {
-        // Button transitions from not clicked to clicked
-        if(encoderClickStatus == false)
-        {
-            encoderClicked();
-        }
-        
-        encoderClickStatus = true;
-        //Serial.println(F("Click "));
+      encoderUnClicked();
     }
-    else if(digitalRead(ENCODER_CLICK == 1))
-    {
-        if(encoderClickStatus == true)
-        {
-            encoderUnClicked();
-        }
-        
-        encoderClickStatus = false;
-    }
+
+    encoderClickStatus = false;
+  }
 }
 
 time_t syncProvider()
 {
-    //this does the same thing as RTC_DS1307::get()
-    return RTC.now().unixtime();
+  //this does the same thing as RTC_DS1307::get()
+  return RTC.now().unixtime();
 }
 
 void scheduleRandomStorm()
 {
-    // Schedules a storm between 1 & 9 in the evening
-    // It sets Storm2, followed by Cloud2 or DawnDusk or Moon2, depending on when the storm is over
-    randomSeed(analogRead(randAnalogPin));  // Generate random seed on unused pin
-    nextStormHour = random(23);                   // Randomizer for RandomStorm
-    nextStormMinute = random(59);
-    byte nextStormSecond = random(59);
-    nextStormDurationHours = random(2);
-    nextStormDurationMinutes = random(59);
-    
-    // If 1:00PM - 9:00PM schedule a storm
-    if (nextStormHour >= 13 && nextStormHour <= 21)
-    {
-        // Schedule the storm
-        Alarm.alarmOnce(nextStormHour, nextStormMinute, nextStormSecond, Storm2);
-        
-        // Show storm info to the console
-        Serial.print(F("Shcedule Storm: "));
-        Serial.print(nextStormHour);
-        Serial.print(F(":"));
-        Serial.print(nextStormMinute);
-        Serial.print(F(":"));
-        Serial.print(nextStormSecond);
-        Serial.print(F(" Duration: "));
-        Serial.print(nextStormDurationHours);
-        Serial.print(F(":"));
-        Serial.print(nextStormDurationMinutes);
-        
-        // Schedule an alarm to change the weather back to the scheduled weather once the storm is over
-        Alarm.alarmOnce((nextStormHour + nextStormDurationHours), (nextStormMinute + nextStormDurationMinutes), nextStormSecond, getLightingForTime((nextStormHour + nextStormDurationHours), (nextStormMinute + nextStormDurationMinutes)));
-    }
-    else
-    {
-        // Set the duration to 0 so we know that there is no storm
-        nextStormDurationHours = 0;
-        nextStormDurationMinutes = 0;
-        
-        // Don't really need this, but it can stay till we need the space
-        Serial.println(F("No storm today"));
-    }
-    
-    // Don't "need" this because the lcd gets updated every loop anyways, but this is more verbose
-    updateLCD();
+  // Schedules a storm between 1 & 9 in the evening
+  // It sets Storm2, followed by Cloud2 or DawnDusk or Moon2, depending on when the storm is over
+  randomSeed(analogRead(randAnalogPin));  // Generate random seed on unused pin
+  nextStormHour = random(23);                   // Randomizer for RandomStorm
+  nextStormMinute = random(59);
+  byte nextStormSecond = random(59);
+  nextStormDurationHours = random(2);
+  nextStormDurationMinutes = random(59);
+
+  // If 1:00PM - 9:00PM schedule a storm
+  if (nextStormHour >= 13 && nextStormHour <= 21)
+  {
+    // Schedule the storm
+    Alarm.alarmOnce(nextStormHour, nextStormMinute, nextStormSecond, Storm2);
+
+    // Show storm info to the console
+    Serial.print(F("Shcedule Storm: "));
+    Serial.print(nextStormHour);
+    Serial.print(F(":"));
+    Serial.print(nextStormMinute);
+    Serial.print(F(":"));
+    Serial.print(nextStormSecond);
+    Serial.print(F(" Duration: "));
+    Serial.print(nextStormDurationHours);
+    Serial.print(F(":"));
+    Serial.print(nextStormDurationMinutes);
+
+    // Schedule an alarm to change the weather back to the scheduled weather once the storm is over
+    Alarm.alarmOnce((nextStormHour + nextStormDurationHours), (nextStormMinute + nextStormDurationMinutes), nextStormSecond, getLightingForTime((nextStormHour + nextStormDurationHours), (nextStormMinute + nextStormDurationMinutes)));
+  }
+  else
+  {
+    // Set the duration to 0 so we know that there is no storm
+    nextStormDurationHours = 0;
+    nextStormDurationMinutes = 0;
+
+    // Don't really need this, but it can stay till we need the space
+    Serial.println(F("No storm today"));
+  }
+
+  // Don't "need" this because the lcd gets updated every loop anyways, but this is more verbose
+  updateLCD();
 }
 
 int serialReadInt()
 {
-    // Reads first 2 bytes from serial monitor; anything more is tossed
-    byte i;
-    char inBytes[3];
-    char * inBytesPtr = &inBytes[0];  // Pointer to first element
-    
-    for (i=0; i<2; i++)             // Only want first 2 bytes
-        inBytes[i] = Serial.read();
-    inBytes[i] =  '\0';             // Put NULL character at the end
-    while (Serial.read() >= 0)      // If anything else is there, throw it away
-        ; // do nothing
-    return atoi(inBytesPtr);        // Convert to decimal
+  // Reads first 2 bytes from serial monitor; anything more is tossed
+  byte i;
+  char inBytes[3];
+  char * inBytesPtr = &inBytes[0];  // Pointer to first element
+
+  for (i=0; i<2; i++)             // Only want first 2 bytes
+    inBytes[i] = Serial.read();
+  inBytes[i] =  '\0';             // Put NULL character at the end
+  while (Serial.read() >= 0)      // If anything else is there, throw it away
+    ; // do nothing
+  return atoi(inBytesPtr);        // Convert to decimal
 }
 
 void processComputerCommands(int cmd)
 {
-    // Handles commands sent in from the serial monitor
-    if (cmd >= 1 && cmd <= 32)
-    {
-        // cmd must be 1 - 32
-        sendIRCode(cmd-1, 1);
-    }
-    else
-    {
-        Serial.println(F("Invalid Choice"));
-    }
+  // Handles commands sent in from the serial monitor
+  if (cmd >= 1 && cmd <= 32)
+  {
+    // cmd must be 1 - 32
+    sendIRCode(cmd-1, 1);
+  }
+  else
+  {
+    Serial.println(F("Invalid Choice"));
+  }
 }
 
 void sendIRCode(byte cmd, byte numTimes)
 {
-    // cmd = the element of the arrCode[] array that holds the IR code to be sent
+  // cmd = the element of the arrCode[] array that holds the IR code to be sent
   // numTimes = number of times to emmit the command
   // Shift header 16 bits to left, fetch code from PROGMEM & add it
-    unsigned long irCode = (codeHeader << 16) + pgm_read_word_near(lightCodes + cmd);
-    for( byte i = 0; i < numTimes; i++)
-    {
-        irsend.sendNEC(irCode,32); // Send/emmit code
-        delay(100);
-    }
-    
-    // Print the string associated with the IR code & the time
-    Serial.print(PGMSTR(lightingMessage[cmd]));
-    Serial.print(": ");
-    Serial.print(hour());
-    Serial.print(":");
-    Serial.print(minute());
-    Serial.print(":");
-    Serial.println(second());
-    
-    lastIRCodeSent = cmd;
-    
-    // Don't "need" this because the lcd gets updated every loop anyways, but this is more verbose
-    updateLCD();
+  unsigned long irCode = (codeHeader << 16) + pgm_read_word_near(lightCodes + cmd);
+  for( byte i = 0; i < numTimes; i++)
+  {
+    irsend.sendNEC(irCode,32); // Send/emmit code
+    delay(100);
+  }
+
+  // Print the string associated with the IR code & the time
+  Serial.print(PGMSTR(lightingMessage[cmd]));
+  Serial.print(": ");
+  Serial.print(hour());
+  Serial.print(":");
+  Serial.print(minute());
+  Serial.print(":");
+  Serial.println(second());
+
+  lastIRCodeSent = cmd;
+
+  // Don't "need" this because the lcd gets updated every loop anyways, but this is more verbose
+  updateLCD();
 }
 
 int availableRAM()
 {
-    // Returns available SRAM
-    extern int __heap_start, *__brkval;
-    int v;
-    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+  // Returns available SRAM
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
 }
 
 void printNumberToLCDWithLeadingZeros(int numberToPrint)
 {
-    // Utility function for digital clock display: prints leading 0's
-    if(numberToPrint < 10)
-        lcd.print(F("0"));
-    lcd.print(numberToPrint);
+  // Utility function for digital clock display: prints leading 0's
+  if(numberToPrint < 10)
+    lcd.print(F("0"));
+  lcd.print(numberToPrint);
 }
 
 void clearLCDLine(byte lineNumber)
 {
-    lcd.setCursor(0, lineNumber);
-    lcd.print(LCD_BLANK_LINE);
+  lcd.setCursor(0, lineNumber);
+  lcd.print(LCD_BLANK_LINE);
 }
 
 void updateLCD()
 {
-    //if(lcdMenuLayer == 0)
-    //{
-        showStatusMenu();
-    //}
-    //else if(lcdMenuLayer == 1)
-    //{
-    //    showLCDMainMenu();
-    //}
+  //if(lcdMenuLayer == 0)
+  //{
+  showStatusMenu();
+  //}
+  //else if(lcdMenuLayer == 1)
+  //{
+  //    showLCDMainMenu();
+  //}
 }
 
 void showStatusMenu()
 {
-    // Update the LCD once a second - This needs to be improved to better handle changes
-    if(second() != previousLCDUpdateSecond)
+  // Update the LCD once a second - This needs to be improved to better handle changes
+  if(second() != previousLCDUpdateSecond)
+  {
+    lcd.clear();
+
+    // Print the time HH:MM:SS
+    lcd.setCursor(0,0);
+    printNumberToLCDWithLeadingZeros(hourFormat12());
+    lcd.print(":");
+    printNumberToLCDWithLeadingZeros(minute());
+    lcd.print(":");
+    printNumberToLCDWithLeadingZeros(second());
+    if(isAM())
     {
-        lcd.clear();
-        
-        // Print the time HH:MM:SS
-        lcd.setCursor(0,0);
-        printNumberToLCDWithLeadingZeros(hourFormat12());
-        lcd.print(":");
-        printNumberToLCDWithLeadingZeros(minute());
-        lcd.print(":");
-        printNumberToLCDWithLeadingZeros(second());
-        if(isAM())
-        {
-            lcd.print(F(" AM"));
-        }
-        else
-        {
-            lcd.print(F(" PM"));
-        }
-        previousLCDUpdateSecond = second();
-        
-        // Show storm info
-        if(nextStormDurationHours == 0 && nextStormDurationMinutes == 0)
-        {
-            lcd.setCursor(0,1);
-            lcd.print(F("No storm today"));
-        }
-        else
-        {
-            lcd.setCursor(0,1);
-            lcd.print(F("Storm Time: "));
-            printNumberToLCDWithLeadingZeros(hourFormat12(nextStormHour));
-            lcd.print(F(":"));
-            printNumberToLCDWithLeadingZeros(nextStormMinute);
-            if(isAM())
-            {
-                lcd.print(F(" AM"));
-            }
-            else
-            {
-                lcd.print(F(" PM"));
-            }
-        }
-        
-        // Show the lighting info
-        lcd.setCursor(0,2);
-        lcd.print(PGMSTR(lightingMessage[lastIRCodeSent]));
+      lcd.print(F(" AM"));
     }
+    else
+    {
+      lcd.print(F(" PM"));
+    }
+    previousLCDUpdateSecond = second();
+
+    // Show storm info
+    if(nextStormDurationHours == 0 && nextStormDurationMinutes == 0)
+    {
+      lcd.setCursor(0,1);
+      lcd.print(F("No storm today"));
+    }
+    else
+    {
+      lcd.setCursor(0,1);
+      lcd.print(F("Storm Time: "));
+      printNumberToLCDWithLeadingZeros(hourFormat12(nextStormHour * 3600));
+      lcd.print(F(":"));
+      printNumberToLCDWithLeadingZeros(nextStormMinute);
+      if(isAM())
+      {
+        lcd.print(F(" AM"));
+      }
+      else
+      {
+        lcd.print(F(" PM"));
+      }
+    }
+
+    // Show the lighting info
+    lcd.setCursor(0,2);
+    lcd.print(PGMSTR(lightingMessage[lastIRCodeSent]));
+  }
 }
 
 void showLCDMainMenu()
 {
-    
+
 }
 
 void encoderPositionChanged()
 {
-    
+
 }
 
 void encoderClicked()
 {
-    // Beep
-    analogWrite(BEEPER, 128);
-    delay(100);
-    analogWrite(BEEPER, 0);
-    //tone(BEEPER, 500, 10);
-    
-    if(lcdMenuLayer == 0)
-    {
-        lcdMenuLayer ++;
-    }
-    
-    updateLCD();
+  // Beep
+  analogWrite(BEEPER, 128);
+  delay(100);
+  analogWrite(BEEPER, 0);
+  //tone(BEEPER, 500, 10);
+
+  if(lcdMenuLayer == 0)
+  {
+    lcdMenuLayer ++;
+  }
+
+  updateLCD();
 }
 
 void encoderUnClicked()
 {
-    // Do something here
+  // Do something here
 }
 
 void readEncoder()
 {
-    // Read the rotary encoder
-    if(digitalRead(ENCODER_A) == 0)
+  // Read the rotary encoder
+  if(digitalRead(ENCODER_A) == 0)
+  {
+    encoderBits |= ENCODER_A_MASK;
+  }
+  if(digitalRead(ENCODER_B) == 0)
+  {
+    encoderBits |= ENCODER_B_MASK;
+  }
+  // Determine the encoder rotation change
+  if(encoderBits != previousEncoderBits)
+  {
+    switch(encoderBits)
     {
-        encoderBits |= ENCODER_A_MASK;
+    case encrot0:
+      //Serial.println(F("rotation0"));
+      if(previousEncoderBits == encrot3)
+        encoderDifference ++;
+      else if(previousEncoderBits == encrot1)
+        encoderDifference --;
+      break;
+    case encrot1:
+      //Serial.println(F("rotation1"));
+      if(previousEncoderBits == encrot0)
+        encoderDifference ++;
+      else if(previousEncoderBits == encrot2)
+        encoderDifference --;
+      break;
+    case encrot2:
+      //Serial.println(F("rotation2"));
+      if(previousEncoderBits == encrot1)
+        encoderDifference ++;
+      else if(previousEncoderBits == encrot3)
+        encoderDifference --;
+      break;
+    case encrot3:
+      //Serial.println(F("rotation3"));
+      if(previousEncoderBits == encrot2)
+        encoderDifference ++;
+      else if(previousEncoderBits == encrot0)
+        encoderDifference --;
+      break;
     }
-    if(digitalRead(ENCODER_B) == 0)
-    {
-        encoderBits |= ENCODER_B_MASK;
-    }
-    // Determine the encoder rotation change
-    if(encoderBits != previousEncoderBits)
-    {
-        switch(encoderBits)
-        {
-            case encrot0:
-                //Serial.println(F("rotation0"));
-                if(previousEncoderBits == encrot3)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot1)
-                    encoderDifference --;
-                break;
-            case encrot1:
-                //Serial.println(F("rotation1"));
-                if(previousEncoderBits == encrot0)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot2)
-                    encoderDifference --;
-                break;
-            case encrot2:
-                //Serial.println(F("rotation2"));
-                if(previousEncoderBits == encrot1)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot3)
-                    encoderDifference --;
-                break;
-            case encrot3:
-                //Serial.println(F("rotation3"));
-                if(previousEncoderBits == encrot2)
-                    encoderDifference ++;
-                else if(previousEncoderBits == encrot0)
-                    encoderDifference --;
-                break;
-        }
-    }
-    previousEncoderBits = encoderBits;
-    encoderBits = 0;
+  }
+  previousEncoderBits = encoderBits;
+  encoderBits = 0;
 }
 
 void LCDPowerOn() 
 {
-    digitalWrite(LCD_MOSFET, HIGH);
-    lcd.begin(LCD_COLUMNS, LCD_ROWS);
+  digitalWrite(LCD_MOSFET, HIGH);
+  lcd.begin(LCD_COLUMNS, LCD_ROWS);
 }
 void LCDPowerOff()
 {
-    digitalWrite(LCD_MOSFET, LOW);
+  digitalWrite(LCD_MOSFET, LOW);
 }
 
 // IR Code functions, called by alarms
-void Orange() {sendIRCode(0,2);LCDPowerOn();}
-void Blue() {sendIRCode(1,2);LCDPowerOn();}
-void Rose() {sendIRCode(2,2);LCDPowerOn();}
-void PowerOnOff() {sendIRCode(3,1);}
-void White() {sendIRCode(4,2);LCDPowerOn();}
-void FullSpec() {sendIRCode(5,2);LCDPowerOn();}
-void Purple() {sendIRCode(6,2);LCDPowerOn();}
-void Play() {sendIRCode(7,1);LCDPowerOn();}
-void RedUp() {sendIRCode(8,1);LCDPowerOn();}
-void GreenUp() {sendIRCode(9,1);LCDPowerOn();}
-void BlueUp() {sendIRCode(10,1);LCDPowerOn();}
-void WhiteUp() {sendIRCode(11,1);LCDPowerOn();}
-void RedDown() {sendIRCode(12,1);LCDPowerOn();}
-void GreenDown() {sendIRCode(13,1);LCDPowerOn();}
-void BlueDown() {sendIRCode(14,1);LCDPowerOn();}
-void WhiteDown() {sendIRCode(15,1);LCDPowerOn();}
-void M1Custom() {sendIRCode(16,2);LCDPowerOn();}
-void M2Custom() {sendIRCode(17,2);LCDPowerOn();}
-void M3Custom() {sendIRCode(18,2);LCDPowerOn();}
-void M4Custom() {sendIRCode(19,2);LCDPowerOff();}
-void Moon1() {sendIRCode(20,2);LCDPowerOn();}
-void Moon2() {sendIRCode(21,2);LCDPowerOn();}
-void Moon3() {sendIRCode(22,2);LCDPowerOn();}
-void DawnDusk() {sendIRCode(23,2);LCDPowerOn();}
-void Cloud1() {sendIRCode(24,2);LCDPowerOn();}
-void Cloud2() {sendIRCode(25,2);LCDPowerOn();}
-void Cloud3() {sendIRCode(26,2);LCDPowerOn();}
-void Cloud4() {sendIRCode(27,2);LCDPowerOn();}
-void Storm1() {sendIRCode(28,2);LCDPowerOn();}
-void Storm2() {sendIRCode(29,2);LCDPowerOn();}
-void Storm3() {sendIRCode(30,2);LCDPowerOn();}
-void Storm4() {sendIRCode(31,2);LCDPowerOn();}
+void Orange() {
+  sendIRCode(0,2);
+  LCDPowerOn();
+}
+void Blue() {
+  sendIRCode(1,2);
+  LCDPowerOn();
+}
+void Rose() {
+  sendIRCode(2,2);
+  LCDPowerOn();
+}
+void PowerOnOff() {
+  sendIRCode(3,1);
+}
+void White() {
+  sendIRCode(4,2);
+  LCDPowerOn();
+}
+void FullSpec() {
+  sendIRCode(5,2);
+  LCDPowerOn();
+}
+void Purple() {
+  sendIRCode(6,2);
+  LCDPowerOn();
+}
+void Play() {
+  sendIRCode(7,1);
+  LCDPowerOn();
+}
+void RedUp() {
+  sendIRCode(8,1);
+  LCDPowerOn();
+}
+void GreenUp() {
+  sendIRCode(9,1);
+  LCDPowerOn();
+}
+void BlueUp() {
+  sendIRCode(10,1);
+  LCDPowerOn();
+}
+void WhiteUp() {
+  sendIRCode(11,1);
+  LCDPowerOn();
+}
+void RedDown() {
+  sendIRCode(12,1);
+  LCDPowerOn();
+}
+void GreenDown() {
+  sendIRCode(13,1);
+  LCDPowerOn();
+}
+void BlueDown() {
+  sendIRCode(14,1);
+  LCDPowerOn();
+}
+void WhiteDown() {
+  sendIRCode(15,1);
+  LCDPowerOn();
+}
+void M1Custom() {
+  sendIRCode(16,2);
+  LCDPowerOn();
+}
+void M2Custom() {
+  sendIRCode(17,2);
+  LCDPowerOn();
+}
+void M3Custom() {
+  sendIRCode(18,2);
+  LCDPowerOn();
+}
+void M4Custom() {
+  sendIRCode(19,2);
+  LCDPowerOff();
+}
+void Moon1() {
+  sendIRCode(20,2);
+  LCDPowerOn();
+}
+void Moon2() {
+  sendIRCode(21,2);
+  LCDPowerOn();
+}
+void Moon3() {
+  sendIRCode(22,2);
+  LCDPowerOn();
+}
+void DawnDusk() {
+  sendIRCode(23,2);
+  LCDPowerOn();
+}
+void Cloud1() {
+  sendIRCode(24,2);
+  LCDPowerOn();
+}
+void Cloud2() {
+  sendIRCode(25,2);
+  LCDPowerOn();
+}
+void Cloud3() {
+  sendIRCode(26,2);
+  LCDPowerOn();
+}
+void Cloud4() {
+  sendIRCode(27,2);
+  LCDPowerOn();
+}
+void Storm1() {
+  sendIRCode(28,2);
+  LCDPowerOn();
+}
+void Storm2() {
+  sendIRCode(29,2);
+  LCDPowerOn();
+}
+void Storm3() {
+  sendIRCode(30,2);
+  LCDPowerOn();
+}
+void Storm4() {
+  sendIRCode(31,2);
+  LCDPowerOn();
+}
+
