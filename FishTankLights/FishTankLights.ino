@@ -96,7 +96,7 @@ nop();
 
 #if DEBUG
 // define which test to run
-#define TEST 1
+#define TEST 2
 
 // Test 1: every 5 seconds a new command is sent for testing
 int loopTester = 0;
@@ -104,8 +104,7 @@ long interval = 5000;
 long previousMillis = 0;
 
 // Test 2: ramp testing
-long simpleRampDuration 10000;
-void SimpleRamp(LightColor lightColor, int tstep);
+long simpleRampDuration = 10000;
 #endif
 
 //**********************************************************************//
@@ -201,6 +200,10 @@ void encoderUnClicked();
 void readEncoder();
 // IR Functions
 void sendIRCode(byte cmd, byte numTimes);
+
+#if DEBUG
+void SimpleRamp(LightColor lightColor, int tstep);
+#endif
 
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
@@ -299,8 +302,8 @@ PROGMEM LightColor lightColors[LIGHTING_OPTIONS] = {
 	{0, 0, 0, 0},  															// 19 - M3 Custom
 	{0, 0, 0, 0},  															// 20 - M4 Custom
 	{0, 0, 20, 0},  														// 21 - Moon 1
-	{0, 15, 0, 0}, 															// 22 - Moon 2
-	{0, 10, 0, 0}, 															// 23 - Moon 3
+	{0, 0, 20, 0}, 															// 22 - Moon 2
+	{0, 0, 10, 0}, 															// 23 - Moon 3
 	{30, 15, 0, 10},														// 24 - Dawn/Dusk
 	{0, 0, 0, MAX_COLOR_STEPS},  											// 25 - Cloud 1
 	{0, 0, 0, MAX_COLOR_STEPS},  											// 26 - Cloud 2
@@ -411,12 +414,19 @@ void loop()
 # if TEST == 2
 	//Simple ramp (using delays and for loops)
 	M4Custom();
+	Serial.println("ramp1");
 	SimpleRamp(lightColors[21], simpleRampDuration / 15);
 	Moon2();
+	Play();
+	Serial.println("ramp2");
 	SimpleRamp(lightColors[23], simpleRampDuration / 40);
 	DawnDusk();
+	Play();
+	Serial.println("ramp3");
 	SimpleRamp(lightColors[21], simpleRampDuration / 40);
 	Moon2();
+	Play();
+	Serial.println("ramp4");
 	SimpleRamp(lightColors[19], simpleRampDuration / 15);
 	M4Custom();
 # endif
@@ -1136,49 +1146,57 @@ void SimpleRamp(LightColor lightColor, int tstep)
 		if (currentColor.red < lightColor.red)
 		{
 			RedUp();
-			currentColor.red++;
+			Serial.print("red up");
+			Serial.println(currentColor.red);
 			delay(tstep);
 		}
 		if (currentColor.red > lightColor.red)
 		{
 			RedDown();
-			currentColor.red--;
+			Serial.print("red down");
+			Serial.println(currentColor.red);
 			delay(tstep);
 		}
 		if (currentColor.green < lightColor.green)
 		{
-			GreenDown();
-			currentColor.green++;
+			GreenUp();
+			Serial.print("green up");
+			Serial.println(currentColor.green);
 			delay(tstep);
 		}
 		if (currentColor.green > lightColor.green)
 		{
-			GreenUp();
-			currentColor.green--;
+			GreenDown();
+			Serial.print("green down");
+			Serial.println(currentColor.green);
 			delay(tstep);
 		}
 		if (currentColor.blue < lightColor.blue)
 		{
-			BlueDown();
-			currentColor.blue++;
+			BlueUp();
+			Serial.print("blue up");
+			Serial.println(currentColor.blue);
 			delay(tstep);
 		}
 		if (currentColor.blue > lightColor.blue)
 		{
-			BlueUp();
-			currentColor.blue;
+			BlueDown();
+			Serial.print("blue down");
+			Serial.println(currentColor.blue);
 			delay(tstep);
 		}
 		if (currentColor.white < lightColor.white)
 		{
 			WhiteUp();
-			currentColor.white++;
+			Serial.print("white up");
+			Serial.println(currentColor.white);
 			delay(tstep);
 		}
 		if (currentColor.white > lightColor.white)
 		{
 			WhiteDown();
-			currentColor.white--;
+			Serial.print("white down");
+			Serial.println(currentColor.white);
 			delay(tstep);
 		}
 	}
