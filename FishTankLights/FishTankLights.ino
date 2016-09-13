@@ -449,12 +449,12 @@ void setLCDAlarms()
 {
 	// Soon this will read from EEPROM
 	
-	addLCDAlarm(9, 00, Moon2, 15);
-	addLCDAlarm(10, 00, DawnDusk, 15);
-	addLCDAlarm(11, 00, Cloud2, 15);
-	addLCDAlarm(12, 00, FullSpec, -1);
-	addLCDAlarm(14, 00, Blue, -1);
-	addLCDAlarm(19, 00, Cloud2, -1);
+	addLCDAlarm(10, 00, Moon2, 15);
+	addLCDAlarm(11, 00, DawnDusk, 15);
+	addLCDAlarm(12, 00, Cloud2, 15);
+	addLCDAlarm(14, 00, FullSpec, -1);
+	addLCDAlarm(16, 00, Blue, -1);
+	addLCDAlarm(18, 00, Cloud2, -1);
 	addLCDAlarm(20, 00, DawnDusk, 15);
 	addLCDAlarm(21, 00, Moon2, 15);
 	addLCDAlarm(23, 00, M4Custom, 15); // Off
