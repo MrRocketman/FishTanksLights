@@ -19,7 +19,7 @@
 //
 
 //**********************************************************************//
-#pragma mark - Includes
+//#pragma mark - Includes
 
 #include <Wire.h>
 #include <RTClib.h>
@@ -31,7 +31,7 @@
 #include <EEPROM.h>
 
 //**********************************************************************//
-#pragma mark - Defines
+//#pragma mark - Defines
 
 /*
  * BOF preprocessor bug prevent
@@ -92,7 +92,7 @@ nop();
 #define RESERVED_ALARMS 2
 
 //**********************************************************************//
-#pragma mark - Debug/Testing Declarations
+//#pragma mark - Debug/Testing Declarations
 
 #if DEBUG
 // define which test to run
@@ -108,7 +108,7 @@ long simpleRampDuration = 10000;
 #endif
 
 //**********************************************************************//
-#pragma mark - Variables
+//#pragma mark - Variables
 
 // Main object variables
 RTC_DS1307 RTC;
@@ -167,7 +167,7 @@ byte nextStormDurationHours = 0;
 byte nextStormDurationMinutes = 0;
 
 //**********************************************************************//
-#pragma mark - Function Declarations
+//#pragma mark - Function Declarations
 
 // Alarm Functions
 void setLCDAlarms();
@@ -208,7 +208,7 @@ void SimpleRamp(LightColor lightColor, int tstep);
 // Current Satellite+ IR Codes (NEC Protocol)
 unsigned long codeHeader = 0x20DF; // Always the same
 								   // Remote buttons listed left to right, top to bottom
-PROGMEM unsigned int lightCodes[LIGHTING_OPTIONS] = {
+const PROGMEM unsigned int lightCodes[LIGHTING_OPTIONS] = {
 	0x3AC5,  // 1 -  Orange
 	0xBA45,  // 2 -  Blue
 	0x827D,  // 3 -  Rose
@@ -244,7 +244,7 @@ PROGMEM unsigned int lightCodes[LIGHTING_OPTIONS] = {
 };
 
 // These are the messages that print on the serial monitor & lcd when each IR code is sent
-prog_char PROGMEM lightingMessage[][MAX_MSG_LEN + 1] = {
+const PROGMEM char lightingMessage[][MAX_MSG_LEN + 1] = {
 	"Orange",
 	"Blue",
 	"Rose",
@@ -280,7 +280,7 @@ prog_char PROGMEM lightingMessage[][MAX_MSG_LEN + 1] = {
 };
 
 // Steps for each color preset. Used for ramping
-PROGMEM LightColor lightColors[LIGHTING_OPTIONS] = {
+const PROGMEM LightColor lightColors[LIGHTING_OPTIONS] = {
 	{MAX_COLOR_STEPS, MAX_COLOR_STEPS, 0, 0},  								// 1 -  Orange
 	{0, 0, MAX_COLOR_STEPS, 0},  											// 2 -  Blue
 	{MAX_COLOR_STEPS, 15, 0, 0},  											// 3 -  Rose
