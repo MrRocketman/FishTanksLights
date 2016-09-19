@@ -46,7 +46,7 @@ nop();
  */
 
 // 1 for degub mode
-#define DEBUG 1
+#define DEBUG 0
 
 // Pin definitions
 #define LCD_RS 7
@@ -653,7 +653,7 @@ void initializeLCDAlarms() {
   byte theHour = hour();
   byte theMinute = minute();
   addLCDAlarm(theHour, theMinute, Moon2, 1);
-  /*addLCDAlarm(theHour, theMinute+1, M1Custom, 0);
+  addLCDAlarm(theHour, theMinute+1, M1Custom, 0);
   addLCDAlarm(theHour, theMinute+2, DawnDusk, 1);
   addLCDAlarm(theHour, theMinute+3, M2Custom, 0);
   addLCDAlarm(theHour, theMinute+4, Cloud2, 1);
@@ -665,9 +665,8 @@ void initializeLCDAlarms() {
   addLCDAlarm(theHour, theMinute+10, DawnDusk, 1);
   addLCDAlarm(theHour, theMinute+11, M2Custom, 0);
   addLCDAlarm(theHour, theMinute+12, Moon2, 1);
-  addLCDAlarm(theHour, theMinute+13, M1Custom, 0);*/
-  addLCDAlarm(theHour, theMinute+1, M4Custom, 1);
-  addLCDAlarm(theHour, theMinute+3, Moon2, 1);
+  addLCDAlarm(theHour, theMinute+13, M1Custom, 0);
+  addLCDAlarm(theHour, theMinute+14, M4Custom, 1);
   #endif
   #endif
 	
